@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from mre.stress import HISTORICAL_WINDOWS
+
 REPO = Path(__file__).resolve().parents[1]
 RD = REPO / "results" / "realdata"
 VAL = REPO / "results" / "validation"
@@ -28,9 +30,7 @@ DESCRIPTION = {
                 "index points. Model P&L under an assumed implied-volatility rule "
                 "(1.2 x EWMA volatility, floor 10%), not traded option prices",
 }
-WINDOWS = {"2008 crisis": ("2008-09-02", "2008-11-20"),
-           "2020 Covid crash": ("2020-02-19", "2020-03-23"),
-           "2022 rate shock": ("2022-01-03", "2022-10-12")}
+WINDOWS = HISTORICAL_WINDOWS  # the pre-specified stress windows of the protocol
 # colours: categorical slots and status colours of the default palette (dataviz skill)
 C_LOSS, C_VAR, C_ES = "#8a8984", "#2a78d6", "#eb6834"
 C_EXC = "#d03b3b"
@@ -136,10 +136,13 @@ def about(summary: pd.DataFrame) -> None:
             "the S&P 500 index (price index), 1990-01-02 to 2022-12-28, from the public "
             "Python package `skfolio` (`skfolio.datasets`); `arch` (`arch.data`) for two "
             "cross-checks. Nothing else; no intraday data.\n"
-            "- **What is stored**: forecasts and test results, no prices and no index levels. "
-            "The P&L of EQ20 (mean of 20 daily returns) and the model P&L of STRANGLE are "
-            "results and are stored with the forecasts; the S&P 500 index's own daily returns "
-            "(the SPX P&L) are read from `skfolio` when the SPX page is shown.\n"
+            "- **What is stored**: forecasts and test results; no column holds a price, an "
+            "index level or the index's own return. The P&L of EQ20 (mean of 20 daily returns) "
+            "and the model P&L of STRANGLE are results and are stored with the forecasts; the "
+            "S&P 500 index's own daily returns (the SPX P&L) are read from `skfolio` when the "
+            "SPX page is shown. Derived series still determine the data they come from (the "
+            "EWMA forecasts and the volatility rule are functions of the returns), see "
+            "`docs/protocol.md`, Part 6.\n"
             "- **STRANGLE is model P&L**: option values come from Black-Scholes-Merton with an "
             "assumed implied volatility (1.2 x EWMA volatility of the index, floor 10%), "
             "dividend yield 2% and rate 3%. There are no option prices in these data.\n"
