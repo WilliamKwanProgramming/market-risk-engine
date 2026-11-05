@@ -30,13 +30,17 @@ CHECKS = [
     # Real data, Table R1.
     (RD, "| EQ20 | FHS | 92 (73) | 1.26 [1.03, 1.54] |", "92 exceptions, 1.26% [1.03, 1.54]"),
     (RD, "| SPX | FHS | 90 (73) | 1.23 [1.00, 1.51] |", "90, 1.23%\n  [1.00, 1.51]"),
+    # Raw Kupiec p of FHS on EQ20 is below 0.05: "not rejected" holds only after Holm.
+    (RD, "| EQ20 | FHS | 92 (73) | 1.26 [1.03, 1.54] | 0.032 (0.158) |",
+     "not rejected by Kupiec on either\n  after Holm"),
     (RD, "| EQ20 | EWMA-N | 156 (73) | 2.14 [", "EWMA-N has 2.14%"),
     (RD, "| SPX | EWMA-N | 156 (73) | 2.14 [", "EWMA-N has 2.14%"),
     (RD, "| STRANGLE | EWMA-N | 374 (73) | 5.12 [", "(5.12% and 4.37%)"),
     (RD, "| STRANGLE | EWMA-T | 319 (73) | 4.37 [", "(5.12% and 4.37%)"),
     (RD, "| STRANGLE | FHS | 50 (73) | 0.69 [", "too few exceptions (0.69%)"),
     (RD, "| STRANGLE | HS1000 | 74 (73) | 1.01 [0.81, 1.27] | 0.906 (0.906) | 0.007 (0.103) | "
-         "0.027 (0.082) |", "HS1000 is the only method not\n  rejected by any VaR test"),
+         "0.027 (0.082) |", "HS1000 is the only method not\n  rejected by any VaR test after Holm"
+                            " (its raw independence p-value is 0.007)"),
     # Real data, Table R2 (Z2 not rejected) and R3 (2008 window).
     (RD, "| EQ20 | FHS | 7300 | -0.078 | 0.099 (0.153) |", "Z2 rejects 18 of 21 cells"),
     (RD, "| SPX | FHS | 7300 | -0.107 | 0.051 (0.153) |", "Z2 rejects 18 of 21 cells"),

@@ -161,10 +161,11 @@ below 0.05 (a finding).
 Reading:
 
 - **VaR (R1)**: on EQ20 and SPX every method has more than 1% exceptions. FHS is the only
-  method not rejected by Kupiec on either (92 exceptions, 1.26% [1.03, 1.54] on EQ20; 90, 1.23%
+  method not rejected by Kupiec on either
+  after Holm (92 exceptions, 1.26% [1.03, 1.54] on EQ20, raw p = 0.032; 90, 1.23%
   [1.00, 1.51] on SPX); EWMA-N has 2.14% on both. On STRANGLE the delta-normal EWMA methods fail
   (5.12% and 4.37%), FHS has too few exceptions (0.69%) and HS1000 is the only method not
-  rejected by any VaR test.
+  rejected by any VaR test after Holm (its raw independence p-value is 0.007).
 - **ES (R2)**: Z2 rejects 18 of 21 cells; not rejected are FHS on EQ20 and SPX and HS1000 on
   STRANGLE. On EQ20 and SPX the FZ0 score ranks EWMA-T, FHS and MC significantly ahead of EWMA-N.
 - **Stress (R3)**: in 2008-09-02 to 2008-11-20 HS1000 had 17 exceptions in 58 days on EQ20 and
