@@ -1,10 +1,10 @@
 experiment: hs_regime_persistent_fat
 command: python -m mre.experiments.hs_regime --set persistent_fat --reps 20 --out results/validation
 seeds: default_rng([20261110, 2, rep]) for rep = 0..19
-git commit: a3c33a4473f6e89a6f2ef269d74e9ad8a829f311 (working tree clean)
+git commit: 0a291bc1fce139896b66df78b0e6f28aaf198252 (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 3.20
-started: 2026-11-05T08:46:00Z
-runtime: 10.1 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 2.62
+started: 2026-11-05T09:20:41Z
+runtime: 6.7 s
 outputs: hs_regime_persistent_fat.csv
 notes: 2000 forecast days per replication after 1000 history days

@@ -215,8 +215,8 @@ every scenario is fully revalued at the state of the close of $t-1$ (horizon 1/2
 
 ### Descriptive outputs for the dashboard (no tests)
 - STRANGLE daily P&L explain (`mre.attribution.option_pnl_explain`): delta, gamma, vega, theta
-  and unexplained parts of the realised model P&L, with spot, implied volatility and days to
-  expiry.
+  and unexplained parts of the realised model P&L, with implied volatility and days to expiry
+  (the index level is not stored, Part 5).
 - EQ20: each stock's contribution $R_{i,t}/20$ to the realised P&L summed by calendar year; and
   Euler ES contributions by stock (`mre.attribution.euler_historical`, HS500 scenarios of the
   20 stock returns times 1/20) on the first evaluation day of each stress window.
