@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Write results/MANIFEST.txt: environment, commit and commands of a reproduce run, followed by
-the per-experiment manifests in results/validation/.
+the per-experiment manifests in results/validation/ and results/realdata/.
 
-Usage (from scripts/reproduce.sh): write_manifest.py --seconds N --out FILE -- CMD [CMD ...]
+Usage (from scripts/reproduce.sh):
+    write_manifest.py --seconds N --cpu-seconds M --part all --out FILE -- CMD [CMD ...]
 """
 
 from __future__ import annotations
@@ -32,6 +33,8 @@ def git(*args: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--seconds", type=int, required=True)
+    ap.add_argument("--cpu-seconds", default="unknown")
+    ap.add_argument("--part", default="all")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("commands", nargs="*")
     args = ap.parse_args()
@@ -46,13 +49,16 @@ def main() -> None:
         f" pandas {pd.__version__}",
         f"machine: {platform.system()} {platform.machine()}, {os.cpu_count()} logical CPUs; "
         "threads limited to 1 (OMP/OPENBLAS/MKL_NUM_THREADS=1)",
-        f"total runtime: {args.seconds} s",
+        f"part reproduced: {args.part}",
+        f"total runtime: {args.seconds} s wall, {args.cpu_seconds} s CPU (user + system of the "
+        f"child processes); load average at the end {os.getloadavg()[0]:.2f}",
         "commands (run from the repository root with PYTHONPATH=src):",
         *[f"  {c}" for c in args.commands],
         "",
     ]
-    for f in sorted((REPO / "results" / "validation").glob("*.manifest.txt")):
-        lines += [f"## {f.name}", f.read_text().rstrip(), ""]
+    for sub in ("validation", "realdata"):
+        for f in sorted((REPO / "results" / sub).glob("*.manifest.txt")):
+            lines += [f"## {sub}/{f.name}", f.read_text().rstrip(), ""]
     args.out.write_text("\n".join(lines))
 
 
