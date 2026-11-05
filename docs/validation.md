@@ -95,9 +95,9 @@ full)/full, and the mean absolute P&L error over the scenarios in the full-reval
 divided by the full-revaluation ES; mean and Monte Carlo standard error over 20 independent
 batches of 50,000 scenarios (seed `(20261108, batch)`).
 
-### Additions written in wave 2 (2026-11-05), before these experiments were run
+### Additions written in a second round (2026-11-05), before these experiments were run
 
-Two sentences of the wave-1 reading stated a mechanism that no experiment had tested, and the
+Two sentences of the first round's reading stated a mechanism that no experiment had tested, and the
 Acerbi-Szekely ES tests had been checked only in unit tests. The three experiments below were
 written down and committed before they were run.
 
@@ -106,7 +106,7 @@ states and portfolios as (d). One more approximation, DGVX = DGV plus the vanna 
 $\text{vanna}\, dS\, d\sigma + \tfrac12 \text{volga}\, d\sigma^2$ (Greeks at the current state;
 $dS = S(e^x - 1)$, $d\sigma = \sigma(e^y - 1)$), i.e. a full second-order expansion in spot and
 volatility. Reported next to DG and DGV: its relative VaR and ES errors. Reading fixed in advance:
-the wave-1 explanation for the short 90% put ("convexity in spot and volatility outside a
+the first-round explanation for the short 90% put ("convexity in spot and volatility outside a
 second-order expansion in spot and first-order in volatility") is supported for a cell if DGVX
 removes at least half of the DGV VaR error ($|\text{err}_{DGVX}| \le 0.5\, |\text{err}_{DGV}|$);
 otherwise the remaining error is attributed to terms of order three and higher, which are not
@@ -143,7 +143,7 @@ HS500, HS1000 (`mre.models.HistoricalSimulation`). For each forecast day: relati
 Reported per set, method and class: the mean relative VaR error and the exception rate (mean over
 replications of the per-replication class mean, Monte Carlo standard error over replications; the
 number of replications with days in the class and the share of days in the class). Reading fixed in
-advance: the wave-1 sentence "too high in calm periods and too low after volatility rises" is
+advance: the first-round sentence "too high in calm periods and too low after volatility rises" is
 supported for a set and method if the error is positive by more than two standard errors in
 `low` and negative by more than two standard errors in `rising`.
 
@@ -413,9 +413,9 @@ the "exact" column is the reference for the size of the test.
   Christoffersen's independence test more often than any other method (up to 26%), and a longer
   window does not help in the persistent sets: HS1000 has an RMSE of 39.1 against 37.3 for HS250
   (`typical`) and 78.0 against 67.3 (`persistent_fat`), differences within about two standard
-  errors, and more Kupiec rejections (28% against 22%, 37% against 22%). (Wave 1 called HS1000
+  errors, and more Kupiec rejections (28% against 22%, 37% against 22%). (The first round called HS1000
   "worse in RMSE"; with these standard errors that is not established.)
-- *Why* historical simulation errs was stated in wave 1 without a test ("too high in calm
+- *Why* historical simulation errs was stated in the first round without a test ("too high in calm
   periods and too low after volatility rises"). Experiment (f) tests it (Tables F): in every set
   and for every window, the VaR error is positive in the `low` volatility class (+18% to +91%)
   and negative in the `rising` class (-20% to -36%), each by more than two standard errors, which
@@ -458,7 +458,7 @@ uses Z2 over about 7,300 days; this table does not measure power at that length.
   the volatility factor matters for one-day option P&L under this model.
 - With the vega term (DGV) the VaR error is 1-7% for the ATM portfolios under normal innovations.
   It is not small for out-of-the-money options: for a short 90% put with 21 days to expiry DGV
-  understates the 99% VaR by 64% (sigma0 = 0.12) and 30% (sigma0 = 0.20). Wave 1 attributed this
+  understates the 99% VaR by 64% (sigma0 = 0.12) and 30% (sigma0 = 0.20). The first round attributed this
   to convexity outside a second-order expansion in spot and first-order in volatility without a
   test. Experiment (d') adds vanna and volga (DGVX): the error falls to -6.2% (sigma0 = 0.20)
   and +0.3% (sigma0 = 0.40), more than halved as the pre-specified criterion requires, but at

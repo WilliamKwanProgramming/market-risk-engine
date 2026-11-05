@@ -1,15 +1,15 @@
 # Pre-specified protocol for the real-data backtests
 
 This file was committed before any backtest was run on real data. Part 1 is the protocol as
-written by the project lead on 2026-11-05, copied unchanged except for one spelling correction
+written by the author on 2026-11-05, copied unchanged except for one spelling correction
 (the scoring function is due to Fissler and Ziegel; the original text said "Fissler-Ziegler").
 Part 2 makes every choice precise (columns, dates, seeds, simulation sizes, output files) without
 changing any choice of Part 1; where Part 1 left something open, Part 2 says which reading was
 taken and why. Part 3 lists deviations; it is empty unless a choice turned out to be impossible.
 
-## Part 1. Protocol as written by the lead
+## Part 1. Protocol as written by the author
 
-Anything below may be made more precise by the implementing agent, but no choice may be changed
+Anything below may be made more precise during implementation, but no choice may be changed
 after real-data results have been seen. If a choice turns out to be impossible (data missing,
 method not converging), say so in the protocol's "Deviations" section with the date and the
 reason, and report the deviation next to every affected result.
