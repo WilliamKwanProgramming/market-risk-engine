@@ -1,10 +1,10 @@
 experiment: size_power
 command: python -m mre.experiments.size_power --reps 5000 --out results/validation
 seeds: coverage: default_rng([20261106, 0, i_n, i_p]); clustering: default_rng([20261106, 1, i_n, i_pi11])
-git commit: 0a291bc1fce139896b66df78b0e6f28aaf198252 (working tree clean)
+git commit: 35e299c293bf92a83c06426502f01fecba77179d (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 2.94
-started: 2026-11-05T09:19:43Z
-runtime: 22.8 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 2.11
+started: 2026-11-05T10:43:39Z
+runtime: 16.8 s
 outputs: size_power_coverage.csv, size_power_clustering.csv
 notes: 5000 replications per cell; nominal VaR level 99%; tests at 5%

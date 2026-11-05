@@ -1,10 +1,10 @@
 experiment: realdata_summary
 command: python -m mre.experiments.realdata --summarise --out results/realdata
 seeds: FHS bootstrap default_rng([20261111, t]); MC default_rng([20261112, t]); Acerbi-Szekely default_rng(20261113) with 5000 simulations
-git commit: 2593b77d41c37ca0c44ab4c426440561d349bf98 (working tree dirty)
+git commit: 35e299c293bf92a83c06426502f01fecba77179d (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 1.98
-started: 2026-11-05T10:26:08Z
+machine: Linux x86_64, 2 logical CPUs, load average at start 2.06
+started: 2026-11-05T10:52:08Z
 runtime: 0.1 s
 outputs: summary.csv, by_year.csv, stress.csv, failures.csv
 notes: real data: skfolio S&P 500 panel 1990-2022; protocol docs/protocol.md

@@ -1,11 +1,11 @@
 experiment: realdata_EQ20
 command: python -m mre.experiments.realdata --portfolio EQ20 --out results/realdata
 seeds: FHS bootstrap default_rng([20261111, t]); MC default_rng([20261112, t]); Acerbi-Szekely default_rng(20261113) with 5000 simulations
-git commit: 2593b77d41c37ca0c44ab4c426440561d349bf98 (working tree dirty)
+git commit: 35e299c293bf92a83c06426502f01fecba77179d (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 0.65
-started: 2026-11-05T10:21:57Z
-runtime: 32.6 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 2.42
+started: 2026-11-05T10:47:51Z
+runtime: 33.6 s
 data packages: skfolio 1.12.5, arch 8.0.0
 data SHA-256 (frames as loaded): skfolio stocks c6635b2fee02639371920b3dbda19553d001b25bfa5011bfd6c2a562cd6458ac; skfolio index 190ea7d3bf56f358e34d386a4f3547b80be427d93dcbed9a2be81f0819f51c17
 outputs: forecasts_EQ20.csv, run_EQ20.csv, es_test_EQ20.csv, stage1/full_EQ20.csv, stage1/by_year_EQ20.csv, stage1/stress_EQ20.csv, fhs_fits_EQ20.csv, eq20_attribution_year.csv, eq20_euler_stress.csv

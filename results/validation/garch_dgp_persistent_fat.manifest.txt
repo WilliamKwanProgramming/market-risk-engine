@@ -1,10 +1,10 @@
 experiment: garch_dgp_persistent_fat
 command: python -m mre.experiments.garch_dgp --set persistent_fat --reps 200 --out results/validation
 seeds: default_rng([20261105, 2, rep]) for rep = 0..199; MC-N seed = rep
-git commit: 0a291bc1fce139896b66df78b0e6f28aaf198252 (working tree clean)
+git commit: 35e299c293bf92a83c06426502f01fecba77179d (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 4.27
-started: 2026-11-05T09:15:00Z
-runtime: 281.4 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 1.93
+started: 2026-11-05T10:40:33Z
+runtime: 184.5 s
 outputs: garch_dgp_persistent_fat.csv, garch_dgp_persistent_fat_summary.csv
 notes: green/yellow/red in the summary are fractions of the four 250-day windows
