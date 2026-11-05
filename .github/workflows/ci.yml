@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install the package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[data,test]" statsmodels
+      - name: Fetch the public data used by the tests
+        # The real-data tests read datasets that ship inside the skfolio and arch wheels
+        # (installed above); loading them once here fails the job early if they are missing.
+        run: |
+          python -c "import skfolio.datasets as d; d.load_sp500_dataset(); d.load_sp500_index(); d.load_factors_dataset()"
+          python -c "import arch.data.sp500, arch.data.frenchdata, arch.data.vix; arch.data.sp500.load(); arch.data.frenchdata.load(); arch.data.vix.load()"
+      - name: Lint
+        run: ruff check src tests scripts
+      - name: Tests
+        run: pytest -q
