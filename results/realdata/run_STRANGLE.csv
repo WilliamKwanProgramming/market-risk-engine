@@ -1,0 +1,8 @@
+method,forecast_days,failed_days,failed,garch_fits,garch_nonconverged,seconds
+HS250,7299,0,[],0,0,10.2
+HS500,7299,0,[],0,0,11.7
+HS1000,7299,0,[],0,0,12.4
+EWMA-N,7299,0,[],0,0,6.4
+EWMA-T,7299,0,[],0,0,8.5
+FHS,7299,0,[],730,31,84.8
+MC,7299,0,[],0,0,98.8

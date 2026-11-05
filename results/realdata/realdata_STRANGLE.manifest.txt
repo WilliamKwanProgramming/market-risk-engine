@@ -1,0 +1,10 @@
+experiment: realdata_STRANGLE
+command: python -m mre.experiments.realdata --portfolio STRANGLE --out results/realdata
+seeds: FHS bootstrap default_rng([20261111, t]); MC default_rng([20261112, t]); Acerbi-Szekely default_rng(20261113) with 5000 simulations
+git commit: 5a9e5978892ce1d221ab861081a8403c573ac3e1 (working tree clean)
+python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
+machine: Linux x86_64, 2 logical CPUs, load average at start 3.95
+started: 2026-11-05T08:02:07Z
+runtime: 308.9 s
+outputs: forecasts_STRANGLE.csv, run_STRANGLE.csv, es_test_STRANGLE.csv, stage1/full_STRANGLE.csv, stage1/by_year_STRANGLE.csv, stage1/stress_STRANGLE.csv, fhs_fits_STRANGLE.csv, strangle_explain.csv
+notes: real data: skfolio S&P 500 panel 1990-2022; protocol docs/protocol.md
