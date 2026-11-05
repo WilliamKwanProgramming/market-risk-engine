@@ -95,6 +95,58 @@ full)/full, and the mean absolute P&L error over the scenarios in the full-reval
 divided by the full-revaluation ES; mean and Monte Carlo standard error over 20 independent
 batches of 50,000 scenarios (seed `(20261108, batch)`).
 
+### Additions written in wave 2 (2026-11-05), before these experiments were run
+
+Two sentences of the wave-1 reading stated a mechanism that no experiment had tested, and the
+Acerbi-Szekely ES tests had been checked only in unit tests. The three experiments below were
+written down and committed before they were run.
+
+**(d') Second-order terms in volatility (part of `mre.experiments.option_tail`).** Same draws,
+states and portfolios as (d). One more approximation, DGVX = DGV plus the vanna and volga terms
+$\text{vanna}\, dS\, d\sigma + \tfrac12 \text{volga}\, d\sigma^2$ (Greeks at the current state;
+$dS = S(e^x - 1)$, $d\sigma = \sigma(e^y - 1)$), i.e. a full second-order expansion in spot and
+volatility. Reported next to DG and DGV: its relative VaR and ES errors. Reading fixed in advance:
+the wave-1 explanation for the short 90% put ("convexity in spot and volatility outside a
+second-order expansion in spot and first-order in volatility") is supported for a cell if DGVX
+removes at least half of the DGV VaR error ($|\text{err}_{DGVX}| \le 0.5\, |\text{err}_{DGV}|$);
+otherwise the remaining error is attributed to terms of order three and higher, which are not
+separated further.
+
+**(e) Size and power of the Acerbi-Szekely Z2 test (`mre.experiments.es_power`).** Returns follow
+the GARCH(1,1)-t set `typical` of (a) (seed `(20261109, i_T, rep)`, burn-in 500, mean zero).
+Sample lengths $T \in \{250, 1000\}$ forecast days, 200 replications each. Three forecasting
+models, each given the true conditional variance $\sigma_t^2$:
+
+1. `correct`: unit-variance Student t(8) scaled by $\sigma_t$ (the true distribution: size);
+2. `normal`: normal with standard deviation $\sigma_t$ (right variance, thinner tail: ES
+   understated);
+3. `scale0.9`: unit-variance t(8) scaled by $0.9\,\sigma_t$ (VaR and ES understated by 10%).
+
+Z1 and Z2 at 97.5% are computed by `mre.backtest.acerbi_szekely` with **5000 simulations**, the
+number fixed for the real-data protocol, and the Monte Carlo p-value of the function (seed = the
+replication number). Reported: rejection rate at 5% with its binomial standard error, and the mean
+of the statistic. Reading fixed in advance: the size check passes if the rejection rate of
+`correct` is within two standard errors of 5%; power is reported as measured.
+
+**(f) Historical-simulation bias by volatility regime (`mre.experiments.hs_regime`).** The three
+GARCH(1,1)-t sets of (a); 20 replications per set of 3000 days after the burn-in (seed
+`(20261110, j, rep)`), days 0-999 history only, days 1000-2999 forecast days. Methods HS250,
+HS500, HS1000 (`mre.models.HistoricalSimulation`). For each forecast day: relative error of the
+99% VaR $\widehat{VaR}_t / VaR_t - 1$ and the exception indicator. Days are classified twice:
+
+- by **level**: `low` if the true $\sigma_t < 0.8\,v$, `high` if $\sigma_t > 1.25\,v$, `middle`
+  otherwise ($v$ = unconditional volatility of the set);
+- by **change** relative to the method's own window of $w$ days: $\rho_t = \sigma_t /
+  \sqrt{\tfrac1w \sum_{s=t-w}^{t-1} \sigma_s^2}$; `rising` if $\rho_t > 1.25$, `falling` if
+  $\rho_t < 0.8$, `stable` otherwise.
+
+Reported per set, method and class: the mean relative VaR error and the exception rate (mean over
+replications of the per-replication class mean, Monte Carlo standard error over replications; the
+number of replications with days in the class and the share of days in the class). Reading fixed in
+advance: the wave-1 sentence "too high in calm periods and too low after volatility rises" is
+supported for a set and method if the error is positive by more than two standard errors in
+`low` and negative by more than two standard errors in `rising`.
+
 ### What is pre-specified about the reading
 
 The checks of the checker are: the Oracle in (a) must show exception rates near 1% and Kupiec
