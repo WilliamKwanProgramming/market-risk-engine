@@ -1,0 +1,10 @@
+experiment: basel_zones
+command: python -m mre.experiments.basel_zones --windows 200000 --out results/validation
+seeds: default_rng([20261107, i_rate])
+git commit: 5dae7e57f96dcef4b6a6a4110c87b67123bf0915 (working tree clean)
+python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
+machine: Linux x86_64, 2 logical CPUs, load average at start 1.83
+started: 2026-11-05T07:00:25Z
+runtime: 1.3 s
+outputs: basel_zones.csv, basel_zones_gof.csv
+notes: 200000 windows of 250 iid Bernoulli days per rate
