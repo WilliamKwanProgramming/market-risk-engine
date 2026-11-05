@@ -29,6 +29,7 @@ Every function returns a new object and leaves its input unchanged.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 from pathlib import Path
 
@@ -37,7 +38,8 @@ import pandas as pd
 from scipy import signal
 
 __all__ = ["load_skfolio_prices", "load_skfolio_index", "load_skfolio_factors", "load_arch",
-           "load_csv", "clean_prices", "to_returns", "ewma_vol_rule", "factor_levels"]
+           "load_csv", "clean_prices", "to_returns", "ewma_vol_rule", "factor_levels",
+           "frame_sha256"]
 
 _ARCH_SETS = ("sp500", "nasdaq", "vix", "wti", "crude", "frenchdata")
 
@@ -90,6 +92,21 @@ def load_csv(path: str | Path, date_column: str | int = 0) -> pd.DataFrame:
     df = df.set_index(col).sort_index()
     df.index.name = "date"
     return df.apply(pd.to_numeric, errors="raise").astype(float)
+
+
+def frame_sha256(obj: pd.DataFrame | pd.Series) -> str:
+    """SHA-256 fingerprint of a frame's content: column names, dates and float64 values.
+
+    The hash does not depend on the pandas version, on the datetime resolution of the index or
+    on any file format, so it can pin the data a run used (the data are read from installed
+    packages, whose contents can change between versions). The frame must have a datetime index.
+    """
+    df = obj.to_frame() if isinstance(obj, pd.Series) else obj
+    h = hashlib.sha256()
+    h.update(("|".join(map(str, df.columns)) + "\n").encode())
+    h.update(df.index.to_numpy(dtype="datetime64[ns]").astype("<i8").tobytes())
+    h.update(np.ascontiguousarray(df.to_numpy(dtype="<f8")).tobytes())
+    return h.hexdigest()
 
 
 def clean_prices(prices: pd.DataFrame | pd.Series, policy: str = "drop",

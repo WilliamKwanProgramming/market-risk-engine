@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import importlib.metadata
 import os
 import platform
 import subprocess
@@ -31,6 +32,17 @@ def git_state() -> tuple[str, str]:
     return commit, "dirty" if dirty else "clean"
 
 
+def package_versions(names: Iterable[str]) -> str:
+    """``"skfolio 1.12.5, arch 8.0.0"``: installed versions, ``not installed`` if missing."""
+    out = []
+    for n in names:
+        try:
+            out.append(f"{n} {importlib.metadata.version(n)}")
+        except importlib.metadata.PackageNotFoundError:
+            out.append(f"{n} not installed")
+    return ", ".join(out)
+
+
 class Manifest:
     """Collects what is needed to reproduce one experiment run and writes it next to the CSVs.
 
@@ -41,6 +53,7 @@ class Manifest:
     def __init__(self, module: str, seeds: str):
         self.module = module
         self.seeds = seeds
+        self.extra: list[str] = []  # further "key: value" lines, written before ``outputs``
         self.args = sys.argv[1:]
         self.t0 = time.time()
         self.started = datetime.datetime.now(datetime.UTC)
@@ -59,6 +72,7 @@ class Manifest:
             f"load average at start {self.load:.2f}",
             f"started: {self.started:%Y-%m-%dT%H:%M:%SZ}",
             f"runtime: {time.time() - self.t0:.1f} s",
+            *self.extra,
             "outputs: " + ", ".join(outputs),
         ]
         if notes:
