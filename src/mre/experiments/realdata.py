@@ -248,7 +248,7 @@ def run_forecasts(inp: PortfolioInput, methods: dict[str, RiskModel], end: int |
     dates = inp.moves.index[inp.start:end]
     fc = pd.DataFrame({"realized": realized, **cols}, index=dates)
     fc.index.name = "date"
-    ok = np.all(np.isfinite(fc.to_numpy()), axis=1)
+    ok = np.all(np.isfinite(fc.to_numpy()), axis=1) & es_positive(fc)
     common_rows = np.arange(inp.start, end)[ok]
     es_rows = []
     for name, sim in sims.items():
@@ -258,6 +258,12 @@ def run_forecasts(inp: PortfolioInput, methods: dict[str, RiskModel], end: int |
                         "exceedances975": res["Z2"].details["n_exceptions"],
                         "days": res["Z2"].details["n_days"], "n_sim": N_SIM_AS})
     return fc, pd.DataFrame(runs), pd.DataFrame(es_rows)
+
+
+def es_positive(fc: pd.DataFrame) -> np.ndarray:
+    """Days on which every method's 97.5% ES is a positive loss (FZ0 and Z2 need ES > 0)."""
+    cols = [c for c in fc.columns if c.endswith(":es975")]
+    return (fc[cols].to_numpy() > 0.0).all(axis=1)
 
 
 def common_sample(fc: pd.DataFrame) -> pd.DataFrame:
@@ -280,7 +286,8 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
     fc = common_sample(fc)
     x = fc["realized"].to_numpy()
     years = fc.index.year.to_numpy()
-    fz_ref = fz0_loss(x, fc["EWMA-N:var975"], fc["EWMA-N:es975"], LEVEL_ES)
+    pos = es_positive(fc)  # FZ0, DM, Z2 and the shortfall ratio need ES > 0 (protocol Part 3)
+    fz_ref = fz0_loss(x[pos], fc["EWMA-N:var975"][pos], fc["EWMA-N:es975"][pos], LEVEL_ES)
     es = es.set_index("method")
     full, by_year, stress = [], [], []
     for m in METHODS:
@@ -291,8 +298,8 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
         kup = kupiec_pof(exc, LEVEL_VAR)
         chr_ = christoffersen(exc, LEVEL_VAR)
         _, zones = zone_occupancy(exc, 250)
-        ratio, n975 = shortfall_ratio(x, var975, es975)
-        fz = fz0_loss(x, var975, es975, LEVEL_ES)
+        ratio, n975 = shortfall_ratio(x[pos], var975[pos], es975[pos])
+        fz = fz0_loss(x[pos], var975[pos], es975[pos], LEVEL_ES)
         dm = diebold_mariano(fz, fz_ref) if m != "EWMA-N" else None
         full.append({
             "portfolio": portfolio, "method": m, "days": n, "first_day": fc.index[0].date(),
@@ -304,10 +311,11 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
             "green": zones["green"], "yellow": zones["yellow"], "red": zones["red"],
             "z1": es.loc[m, "z1"], "z1_p": es.loc[m, "z1_p"],
             "z2": es.loc[m, "z2"], "z2_p": es.loc[m, "z2_p"], "z2_n_sim": es.loc[m, "n_sim"],
+            "es_days": int(pos.sum()),
             "exceedances975": n975, "shortfall_ratio": ratio, "fz0_mean": float(np.mean(fz)),
             "dm_stat": np.nan if dm is None else dm.statistic,
             "dm_p": np.nan if dm is None else dm.p_value,
-            "dm_lag": newey_west_lag(n),
+            "dm_lag": newey_west_lag(int(pos.sum())),
         })
         for y in np.unique(years):
             sel = years == y
@@ -320,7 +328,7 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
                             "cc_p": cy["cc"].p_value})
         for wname, (a, b) in HISTORICAL_WINDOWS.items():
             sel = (fc.index >= pd.Timestamp(a)) & (fc.index <= pd.Timestamp(b))
-            r, nr = shortfall_ratio(x[sel], var975[sel], es975[sel])
+            r, nr = shortfall_ratio(x[sel & pos], var975[sel & pos], es975[sel & pos])
             stress.append({"portfolio": portfolio, "method": m, "window": wname,
                            "start": a, "end": b, "days": int(sel.sum()),
                            "exceptions": int(exc[sel].sum()),
@@ -434,14 +442,13 @@ def stage1(name: str, out: Path) -> list[str]:
     inp, stocks = build_input(name)
     fits: dict = {}
     fc, runs, es = run_forecasts(inp, make_methods(), fits_out=fits)
+    extra = fc.join(inp.extra[["spot", "iv"]]) if inp.extra is not None else fc
+    extra.to_csv(out / f"forecasts_{name}.csv", float_format="%.8g")
+    runs.to_csv(out / f"run_{name}.csv", index=False)
+    es.to_csv(out / f"es_test_{name}.csv", index=False, float_format="%.6g")
     full, by_year, stress = evaluate(name, fc, es)
     part = out / "stage1"
     part.mkdir(parents=True, exist_ok=True)
-    if inp.extra is not None:
-        fc = fc.join(inp.extra[["spot", "iv"]])
-    fc.to_csv(out / f"forecasts_{name}.csv", float_format="%.8g")
-    runs.to_csv(out / f"run_{name}.csv", index=False)
-    es.to_csv(out / f"es_test_{name}.csv", index=False, float_format="%.6g")
     full.to_csv(part / f"full_{name}.csv", index=False, float_format="%.10g")
     by_year.to_csv(part / f"by_year_{name}.csv", index=False, float_format="%.10g")
     stress.to_csv(part / f"stress_{name}.csv", index=False, float_format="%.10g")

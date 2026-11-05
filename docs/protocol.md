@@ -238,7 +238,17 @@ every scenario is fully revalued at the state of the close of $t-1$ (horizon 1/2
 
 ## Part 3. Deviations
 
-None.
+1. **ES-based measures on days with positive predicted ES only (2026-11-05).** The first full
+   run stopped in the STRANGLE evaluation because some methods forecast a 97.5% ES that is not a
+   positive loss on some days (the short strangle gains in every scenario of the predictive
+   distribution, mostly through time decay close to expiry). The FZ0 score is undefined for
+   ES <= 0 and the Acerbi-Szekely statistics divide by ES, so the protocol's choices cannot be
+   applied on those days. The FZ0 means, the Diebold-Mariano tests, Z1/Z2 and the shortfall
+   ratios (full sample and stress windows) are therefore computed on the common days on which
+   **every** method's 97.5% ES is positive; the number of those days is reported
+   (`es_days` in `summary.csv`, `days` in `es_test_<P>.csv`). The VaR tests (Kupiec,
+   Christoffersen, traffic light, by year) use the full common sample as specified. No test
+   result had been seen when this was decided (the run stopped before writing any test).
 
 ## Part 4. Additions made after the protocol commit, before any backtest result (2026-11-05)
 

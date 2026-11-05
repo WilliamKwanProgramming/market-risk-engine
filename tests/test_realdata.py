@@ -149,3 +149,9 @@ def test_shortfall_ratio_uses_the_975_exceedances():
 def test_holm_family_is_all_cells():
     p = np.array([0.001, 0.02, 0.5])
     np.testing.assert_allclose(holm(p), [0.003, 0.04, 0.5])
+
+
+def test_es_positive_requires_every_method():
+    fc = pd.DataFrame({"realized": [0.0, 0, 0], "A:es975": [1.0, -0.1, 2.0],
+                       "B:es975": [0.5, 1.0, 0.0], "A:var99": [-5.0, -5, -5]})
+    assert list(rd.es_positive(fc)) == [True, False, False]
