@@ -294,6 +294,23 @@ def acerbi_szekely(realized: ArrayLike, predictives: Sequence[Predictive], level
     return sim.result()
 
 
+def z2_contributions(realized: ArrayLike, var: ArrayLike, es: ArrayLike,
+                     level: float = 0.975) -> NDArray[np.float64]:
+    """Day-by-day terms of the Acerbi-Szekely Z2: ``X_t I_t / (T p ES_t)``.
+
+    ``Z2 = 1 + z2_contributions(...).sum()`` (definition in :func:`acerbi_szekely`); a term is
+    negative on a day with a loss beyond the VaR and zero on every other day. Because the term
+    divides by the predicted ES, a day on which the predicted ES is close to zero but the loss
+    is not contributes a very large negative term: the statistic then describes that day rather
+    than the sample. Requires ``ES > 0`` on every day.
+    """
+    x, v, e = (np.asarray(a, dtype=float) for a in (realized, var, es))
+    if np.any(e <= 0.0):
+        raise ValueError("Z2 needs strictly positive ES")
+    hit = x + v < 0.0
+    return np.where(hit, x / (x.size * (1.0 - level) * e), 0.0)
+
+
 def fz0_loss(realized: ArrayLike, var: ArrayLike, es: ArrayLike, level: float) -> NDArray:
     """FZ0 joint loss for (VaR, ES) at the same confidence ``level``.
 
