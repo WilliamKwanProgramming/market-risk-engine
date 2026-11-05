@@ -50,6 +50,9 @@ CHECKS = [
     (RD, "| STRANGLE | logIV:SP500 | 365 | 31 | 0.42 | 6.85 | 1.13e+05 |",
      "31 of 365 GARCH fits did not converge"),
     (RD, "| STRANGLE | logIV:SP500 | 365 | 31 | 0.42 | 6.85 | 1.13e+05 |", "reach 1.13e+05"),
+    # Reproduction time.
+    ("results/MANIFEST.txt", "total runtime: 1394 s wall, 1036 s CPU",
+     "1394 s wall time and 1036 s"),
     # Mutation check.
     ("results/mutation_check.txt", "38 of 38 mutants caught", "38 deliberate bugs"),
 ]

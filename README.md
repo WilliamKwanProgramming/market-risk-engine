@@ -234,8 +234,9 @@ time; its result is in `results/mutation_check.txt`.
 - One parameter set per method; one-day horizon; 99% / 97.5% only; one sample (1994-2022).
 - The power of the backtests at 7,300 days was not measured; Z2 power at 1,000 days is 20.5-70%
   against the misspecifications in Table E.
-- `scripts/reproduce.sh` takes about 20 minutes on one core (see `results/MANIFEST.txt` for the
-  measured time and load).
+- `scripts/reproduce.sh` regenerated every result in 1394 s wall time and 1036 s of CPU time on a
+  2-core machine shared with other jobs (load about 3); the wall time was above the 20-minute
+  target there, the single-core CPU time below it (`results/MANIFEST.txt`).
 
 ## References
 

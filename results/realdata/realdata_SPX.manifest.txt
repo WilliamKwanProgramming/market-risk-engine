@@ -1,10 +1,10 @@
 experiment: realdata_SPX
 command: python -m mre.experiments.realdata --portfolio SPX --out results/realdata
 seeds: FHS bootstrap default_rng([20261111, t]); MC default_rng([20261112, t]); Acerbi-Szekely default_rng(20261113) with 5000 simulations
-git commit: 5a9e5978892ce1d221ab861081a8403c573ac3e1 (working tree clean)
+git commit: a3c33a4473f6e89a6f2ef269d74e9ad8a829f311 (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 3.94
-started: 2026-11-05T08:00:59Z
-runtime: 65.0 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 3.37
+started: 2026-11-05T08:51:49Z
+runtime: 57.4 s
 outputs: forecasts_SPX.csv, run_SPX.csv, es_test_SPX.csv, stage1/full_SPX.csv, stage1/by_year_SPX.csv, stage1/stress_SPX.csv, fhs_fits_SPX.csv
 notes: real data: skfolio S&P 500 panel 1990-2022; protocol docs/protocol.md
