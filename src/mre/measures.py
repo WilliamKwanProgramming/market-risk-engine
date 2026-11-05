@@ -28,8 +28,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from scipy import stats
-from scipy.special import ndtri
+from scipy.special import gammaln, ndtri, stdtrit
 
 __all__ = [
     "empirical_var_es",
@@ -49,12 +48,9 @@ def _tail_count(n: int, level: float) -> float:
     return round(n * (1.0 - level), 9)
 
 
-def empirical_var_es(pnl: ArrayLike, level_var: float, level_es: float) -> tuple[float, float]:
-    """VaR and ES of the empirical distribution of a P&L sample (definitions in module docstring).
-
-    Raises ValueError if the sample is too small for ``ceil(n p) >= 1``.
-    """
-    x = np.sort(np.asarray(pnl, dtype=float).ravel())
+def _var_es_sorted(x: NDArray[np.float64], level_var: float,
+                   level_es: float) -> tuple[float, float]:
+    """VaR and ES from an ascending-sorted sample (definitions in the module docstring)."""
     n = x.size
     kv = _tail_count(n, level_var)
     ke = _tail_count(n, level_es)
@@ -63,13 +59,26 @@ def empirical_var_es(pnl: ArrayLike, level_var: float, level_es: float) -> tuple
     var = -x[int(np.ceil(kv)) - 1]
     m = int(np.floor(ke))
     tail = x[:m].sum() + (ke - m) * (x[m] if m < n else 0.0)
-    es = -tail / ke
-    return float(var), float(es)
+    return float(var), float(-tail / ke)
+
+
+def empirical_var_es(pnl: ArrayLike, level_var: float, level_es: float) -> tuple[float, float]:
+    """VaR and ES of the empirical distribution of a P&L sample (definitions in module docstring).
+
+    Raises ValueError for an empty sample.
+    """
+    return _var_es_sorted(np.sort(np.asarray(pnl, dtype=float).ravel()), level_var, level_es)
 
 
 def std_t_quantile(p: ArrayLike, nu: float) -> NDArray[np.float64]:
     """Quantile of the Student t distribution with ``nu > 2`` rescaled to unit variance."""
-    return stats.t.ppf(p, nu) * np.sqrt((nu - 2.0) / nu)
+    return stdtrit(nu, p) * np.sqrt((nu - 2.0) / nu)
+
+
+def _t_pdf(x: float, nu: float) -> float:
+    """Density of the standard Student t distribution."""
+    logc = gammaln((nu + 1.0) / 2.0) - gammaln(nu / 2.0) - 0.5 * np.log(nu * np.pi)
+    return float(np.exp(logc - 0.5 * (nu + 1.0) * np.log1p(x * x / nu)))
 
 
 def std_t_es(level: float, nu: float) -> float:
@@ -81,8 +90,8 @@ def std_t_es(level: float, nu: float) -> float:
     as in McNeil, Frey and Embrechts, Quantitative Risk Management, 2015).
     """
     p = 1.0 - level
-    tq = stats.t.ppf(p, nu)
-    es_std = stats.t.pdf(tq, nu) * (nu + tq * tq) / ((nu - 1.0) * p)
+    tq = float(stdtrit(nu, p))
+    es_std = _t_pdf(tq, nu) * (nu + tq * tq) / ((nu - 1.0) * p)
     return float(es_std * np.sqrt((nu - 2.0) / nu))
 
 
@@ -115,11 +124,14 @@ class EmpiricalPnL(Predictive):
 
     scenarios: NDArray[np.float64]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_sorted", np.sort(np.asarray(self.scenarios, float).ravel()))
+
     def var(self, level: float) -> float:
-        return empirical_var_es(self.scenarios, level, level)[0]
+        return _var_es_sorted(self._sorted, level, level)[0]
 
     def es(self, level: float) -> float:
-        return empirical_var_es(self.scenarios, level, level)[1]
+        return _var_es_sorted(self._sorted, level, level)[1]
 
     def sample(self, rng: np.random.Generator, size: int) -> NDArray[np.float64]:
         """Draw ``size`` scenarios with replacement (the empirical distribution itself)."""

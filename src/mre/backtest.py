@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike, NDArray
 from scipy import stats
-from scipy.special import xlogy
+from scipy.special import chdtrc, ndtr, xlogy
 
 from mre.measures import Predictive
 
@@ -87,7 +87,7 @@ def kupiec_pof(exc: ArrayLike, level: float = 0.99) -> TestResult:
     p = 1.0 - level
     lr = -2.0 * (_binom_loglik(x, n, p) - _binom_loglik(x, n, x / n))
     lr = max(lr, 0.0)
-    return TestResult(lr, float(stats.chi2.sf(lr, 1)), 1,
+    return TestResult(lr, float(chdtrc(1, lr)), 1,
                       {"n": n, "x": x, "rate": x / n, "expected": n * p})
 
 
@@ -131,8 +131,8 @@ def christoffersen(exc: ArrayLike, level: float = 0.99) -> dict[str, TestResult]
     counts = {"n00": n00, "n01": n01, "n10": n10, "n11": n11, "pi01": pi01, "pi11": pi11,
               "pi": pi, "ind_testable": n10 + n11 > 0}
     return {
-        "ind": TestResult(lr_ind, float(stats.chi2.sf(lr_ind, 1)), 1, counts),
-        "cc": TestResult(lr_cc, float(stats.chi2.sf(lr_cc, 2)), 2, counts),
+        "ind": TestResult(lr_ind, float(chdtrc(1, lr_ind)), 1, counts),
+        "cc": TestResult(lr_cc, float(chdtrc(2, lr_cc)), 2, counts),
     }
 
 
@@ -286,5 +286,5 @@ def diebold_mariano(loss_a: ArrayLike, loss_b: ArrayLike, lag: int | None = None
     if not s > 0.0:
         return TestResult(np.nan, np.nan, None, {"lag": L, "mean_diff": float(d.mean())})
     stat = float(d.mean() / np.sqrt(s / n))
-    return TestResult(stat, float(2.0 * stats.norm.sf(abs(stat))), None,
+    return TestResult(stat, float(2.0 * ndtr(-abs(stat))), None,
                       {"lag": L, "mean_diff": float(d.mean()), "n": n})
