@@ -56,8 +56,8 @@ MUTANTS = [
         (M + "measures.py", "tail = x[:m].sum() + (ke - m) * (x[m] if m < n else 0.0)",
          "tail = -x[n - m:].sum() + (ke - m) * (x[m] if m < n else 0.0)")]),
     ("M10 forecast ES computed at the VaR level (99%) instead of 97.5%", [
-        (M + "models.py", "es=pred.es(level_es), diagnostics=diag",
-         "es=pred.es(level_var), diagnostics=diag")]),
+        (M + "models.py", "nums = (pred.var(level_var), pred.es(level_es), pred.var(level_es))",
+         "nums = (pred.var(level_var), pred.es(level_var), pred.var(level_es))")]),
     ("M11 empirical VaR one order statistic too far in the tail", [
         (M + "measures.py", "var = -x[int(np.ceil(kv)) - 1]", "var = -x[int(np.ceil(kv)) - 2]")]),
     ("M12 Student t quantile not rescaled to unit variance", [
@@ -103,6 +103,38 @@ MUTANTS = [
          "base, last = inside[0], inside[-1]")]),
     ("M27 Gaussian Euler contributions ignore correlations", [
         (M + "attribution.py", "marg = e * (S @ e) / sd", "marg = e * np.diag(S) * e / sd")]),
+    ("M28 evaluation sample starts one day late (alignment off by one)", [
+        (M + "experiments/realdata.py", 'np.datetime64(date), side="left"))',
+         'np.datetime64(date), side="right"))')]),
+    ("M29 Holm adjustment without the step-down monotonicity", [
+        (M + "backtest.py", "out[order] = np.maximum.accumulate(adj)", "out[order] = adj")]),
+    ("M30 Newey-West lag rounded up instead of down", [
+        (M + "backtest.py", "return int(np.floor(4.0 * (n / 100.0) ** (2.0 / 9.0)))",
+         "return int(np.ceil(4.0 * (n / 100.0) ** (2.0 / 9.0)))")]),
+    ("M31 Z2 simulation divides simulated tail losses by VaR instead of ES", [
+        (M + "backtest.py", "self._sim_ratio.append(x[hit] / es)",
+         "self._sim_ratio.append(x[hit] / var)")]),
+    ("M32 traffic-light windows of 249 days", [
+        (M + "backtest.py", 'c = np.convolve(e, np.ones(window, dtype=int), mode="valid")',
+         'c = np.convolve(e, np.ones(window - 1, dtype=int), mode="valid")')]),
+    ("M33 STRANGLE time to expiry one day short", [
+        (M + "experiments/realdata.py", "days_left[seg] = n - (pos[seg] - o)",
+         "days_left[seg] = n - (pos[seg] - o) - 1")]),
+    ("M34 FHS bootstrap reuses one seed for every day", [
+        (M + "models.py",
+         "rng = np.random.default_rng([self.seed, index])\n            scen = scen[",
+         "rng = np.random.default_rng([self.seed, 0])\n            scen = scen[")]),
+    ("M35 implied-volatility rule floor applied as a cap", [
+        (M + "data.py", "vol = np.maximum(floor, multiple", "vol = np.minimum(floor, multiple")]),
+    ("M36 shortfall ratio divides by the mean ES over all days", [
+        (M + "experiments/realdata.py", "np.mean(es975[hit])), int(hit.sum())",
+         "np.mean(es975)), int(hit.sum())")]),
+    ("M37 common sample keeps days on which any method has a forecast", [
+        (M + "experiments/realdata.py", "return fc[np.all(np.isfinite(fc.to_numpy()), axis=1)]",
+         "return fc[np.any(np.isfinite(fc.to_numpy()), axis=1)]")]),
+    ("M38 vanna with the wrong sign", [
+        (M + "pricing.py", "vanna = np.where(deg, 0.0, -dq * pdf1 * d2s / sig_safe)",
+         "vanna = np.where(deg, 0.0, dq * pdf1 * d2s / sig_safe)")]),
 ]
 
 

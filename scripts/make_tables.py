@@ -284,7 +284,8 @@ def realdata_tables(res: Path) -> list[str]:
                     "Christoffersen ind.", "Christoffersen CC", "Zones G / Y / R"], rows))
     rows = []
     for r in d.itertuples():
-        rows.append([r.portfolio, r.method, f"{r.z2:.3f}", fp_holm(r.z2_p, r.z2_holm),
+        rows.append([r.portfolio, r.method, str(r.es_days), f"{r.z2:.3f}",
+                     fp_holm(r.z2_p, r.z2_holm),
                      f"{r.shortfall_ratio:.2f} ({r.exceedances975})", f"{r.fz0_mean:.4f}",
                      "-" if not np.isfinite(r.dm_stat) else f"{r.dm_stat:.2f}",
                      fp_holm(r.dm_p, r.dm_holm)])
@@ -297,8 +298,10 @@ def realdata_tables(res: Path) -> list[str]:
         "in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale "
         "differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against "
         f"EWMA-N (negative = lower score than EWMA-N), Newey-West lag {int(d.dm_lag.iloc[0])}, "
-        f"p-value raw (Holm over {n_fam['dm_p']} cells).\n\n"
-        + md_table(["Portfolio", "Method", "Z2", "Z2 p (Holm)", "Shortfall ratio (n)",
+        f"p-value raw (Holm over {n_fam['dm_p']} cells). ES days = common days on which "
+        "every method's 97.5% ES is a positive loss; all columns of this table use only those "
+        "days (docs/protocol.md, Part 3).\n\n"
+        + md_table(["Portfolio", "Method", "ES days", "Z2", "Z2 p (Holm)", "Shortfall ratio (n)",
                     "FZ0", "DM", "DM p (Holm)"], rows))
     windows = list(dict.fromkeys(stress.window))
     rows = []
