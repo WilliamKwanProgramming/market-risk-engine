@@ -45,19 +45,24 @@ def _d1_d2(S, K, T, r, q, sigma):
 
     When ``sigma * sqrt(T) == 0`` the option value is a deterministic function of the forward,
     and d1 = d2 = +inf (in the money), -inf (out of the money) or 0 (exactly at the money),
-    which makes the general formulas return the correct limits for value and delta.
+    which makes the general formulas return the correct limits for value and delta. When
+    ``sigma = +inf`` with ``T > 0`` (a scenario whose volatility move overflows), d1 = +inf and
+    d2 = -inf, the limits of the formulas: a call is worth ``S e^{-qT}`` and a put ``K e^{-rT}``.
     """
     S, K, T, r, q, sigma = np.broadcast_arrays(
         *(np.asarray(x, dtype=float) for x in (S, K, T, r, q, sigma)))
     Tc = np.maximum(T, 0.0)
-    sd = np.maximum(sigma, 0.0) * np.sqrt(Tc)
+    with np.errstate(invalid="ignore"):
+        sd = np.where(Tc > 0.0, np.maximum(sigma, 0.0) * np.sqrt(Tc), 0.0)
     deg = sd <= 0.0
+    big = np.isinf(sd)
     # log-moneyness of the discounted spot against the discounted strike
     m = np.log(S / K) + (r - q) * Tc
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         d1 = np.where(deg, np.sign(m) * np.inf, (m + 0.5 * sd * sd) / np.where(deg, 1.0, sd))
-    d1 = np.where(deg & (m == 0.0), 0.0, d1)
-    d2 = d1 - sd
+        d1 = np.where(deg & (m == 0.0), 0.0, d1)
+        d1 = np.where(big, np.inf, d1)
+        d2 = np.where(big, -np.inf, d1 - sd)
     return d1, d2, sd, deg, Tc, S, K, r, q
 
 
@@ -68,13 +73,18 @@ def bsm_price(S: ArrayLike, K: ArrayLike, T: ArrayLike, r: ArrayLike, q: ArrayLi
     Expired options (``T <= 0``) are worth their intrinsic value on the spot.
     """
     d1, d2, _, _, Tc, S, K, r, q = _d1_d2(S, K, T, r, q, sigma)
-    is_call = np.broadcast_to(np.asarray(is_call, dtype=bool), d1.shape)
     dq = np.exp(-q * Tc)
     dr = np.exp(-r * Tc)
+    flag = np.asarray(is_call, dtype=bool)
+    # Guard against tiny negative values from cancellation deep out of the money.
+    if flag.ndim == 0:  # one option type: evaluate only its formula (the scenario hot path)
+        if flag:
+            return np.maximum(S * dq * ndtr(d1) - K * dr * ndtr(d2), 0.0)
+        return np.maximum(K * dr * ndtr(-d2) - S * dq * ndtr(-d1), 0.0)
+    flag = np.broadcast_to(flag, d1.shape)
     call = S * dq * ndtr(d1) - K * dr * ndtr(d2)
     put = K * dr * ndtr(-d2) - S * dq * ndtr(-d1)
-    # Guard against tiny negative values from cancellation deep out of the money.
-    return np.maximum(np.where(is_call, call, put), 0.0)
+    return np.maximum(np.where(flag, call, put), 0.0)
 
 
 @dataclass(frozen=True)

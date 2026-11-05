@@ -104,3 +104,8 @@ def test_empirical_predictive_sampling_draws_from_scenarios():
     d = EmpiricalPnL(np.array([-3.0, -1.0, 0.0, 2.0]))
     s = d.sample(np.random.default_rng(3), 1000)
     assert set(np.unique(s)) <= {-3.0, -1.0, 0.0, 2.0}
+
+
+def test_empirical_predictive_rejects_nan_scenarios():
+    with pytest.raises(ValueError, match="NaN"):
+        EmpiricalPnL(np.array([-1.0, np.nan, 2.0]))
