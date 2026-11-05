@@ -1,6 +1,6 @@
 """Experiment (d): full revaluation vs delta-gamma(-vega) approximations in the 99% tail.
 
-Protocol: docs/validation.md, section (d). Usage::
+Protocol: docs/validation.md, sections (d) and (d') (DGVX adds vanna and volga). Usage::
 
     python -m mre.experiments.option_tail --batches 20 --batch-size 50000 --out results/validation
 """
@@ -77,8 +77,10 @@ def main(argv: list[str] | None = None) -> None:
                     full = port.pnl_full(state, moves, H).sum(axis=1)
                     var_f, es_f = empirical_var_es(full, 0.99, 0.975)
                     tail = full <= -empirical_var_es(full, 0.975, 0.975)[0]
-                    for method, vega in (("DG", False), ("DGV", True)):
-                        approx = port.pnl_greeks(state, moves, H, vega=vega).sum(axis=1)
+                    for method, vega, second in (("DG", False, False), ("DGV", True, False),
+                                                 ("DGVX", True, True)):
+                        approx = port.pnl_greeks(state, moves, H, vega=vega,
+                                                 second_order_vol=second).sum(axis=1)
                         var_a, es_a = empirical_var_es(approx, 0.99, 0.975)
                         rows.append({
                             "dist": dist, "sigma0": sigma, "portfolio": name, "method": method,
