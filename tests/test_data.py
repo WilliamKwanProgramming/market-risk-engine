@@ -1,4 +1,4 @@
-"""Cleaning, returns, the implied-volatility proxy and the real-data loaders (smoke checks)."""
+"""Cleaning, returns, the implied-volatility rule and the real-data loaders (smoke checks)."""
 
 import numpy as np
 import pandas as pd
@@ -6,10 +6,10 @@ import pytest
 
 from mre.data import (
     clean_prices,
+    ewma_vol_rule,
     factor_levels,
     load_arch,
     load_csv,
-    realized_vol_proxy,
     to_returns,
 )
 
@@ -62,17 +62,21 @@ def test_returns_log_and_simple():
         to_returns(_prices())
 
 
-def test_realized_vol_proxy_is_causal_and_correct():
-    r = pd.Series(np.random.default_rng(0).normal(0, 0.01, 300),
-                  index=pd.bdate_range("2020-01-01", periods=300))
-    v = realized_vol_proxy(r, window=21, multiple=1.2)
-    assert v.iloc[:20].isna().all().all()
-    t = 150
-    assert v.iloc[t, 0] == pytest.approx(1.2 * np.sqrt(252) * r.iloc[t - 20:t + 1].std(ddof=1))
+def test_ewma_vol_rule_matches_ewma_covariance_and_is_causal():
+    from mre.models import ewma_covariance
+
+    r = pd.Series(np.random.default_rng(0).normal(0, 0.01, 700),
+                  index=pd.bdate_range("2020-01-01", periods=700))
+    r.iloc[200:260] = 0.0005  # a calm stretch that hits the floor
+    v = ewma_vol_rule(r, multiple=1.2, floor=0.10, window=500)
+    for t in (0, 1, 40, 230, 499, 500, 650, 699):
+        s2 = float(ewma_covariance(r.iloc[:t + 1].to_numpy(), 0.94, 500)[0, 0])
+        assert v.iloc[t] == pytest.approx(max(0.10, 1.2 * np.sqrt(252 * s2)), rel=1e-10)
+    assert (v.iloc[250:260] == 0.10).all()
     r2 = r.copy()
-    r2.iloc[t + 1:] = 0.5  # change the future
-    v2 = realized_vol_proxy(r2, window=21, multiple=1.2)
-    pd.testing.assert_frame_equal(v.iloc[:t + 1], v2.iloc[:t + 1])
+    r2.iloc[601:] = 0.5  # change the future
+    v2 = ewma_vol_rule(r2)
+    pd.testing.assert_series_equal(v.iloc[:601], v2.iloc[:601])
 
 
 def test_factor_levels_names():

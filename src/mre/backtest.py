@@ -14,6 +14,8 @@ Contents
   p-values under the model's own predictive distributions.
 * :func:`fz0_loss` and :func:`diebold_mariano` - joint VaR/ES scoring (Fissler and Ziegel 2016,
   FZ0 form of Patton, Ziegel and Chen 2019) and the Diebold-Mariano (1995) comparison.
+* :func:`wilson_interval` (Wilson 1927) and :func:`holm` (Holm 1979) - an interval for an
+  exception rate and the step-down multiple-testing adjustment.
 """
 
 from __future__ import annotations
@@ -45,6 +47,8 @@ __all__ = [
     "fz0_loss",
     "diebold_mariano",
     "newey_west_lag",
+    "wilson_interval",
+    "holm",
 ]
 
 
@@ -336,3 +340,40 @@ def diebold_mariano(loss_a: ArrayLike, loss_b: ArrayLike, lag: int | None = None
     stat = float(d.mean() / np.sqrt(s / n))
     return TestResult(stat, float(2.0 * ndtr(-abs(stat))), None,
                       {"lag": L, "mean_diff": float(d.mean()), "n": n})
+
+
+def wilson_interval(x: int, n: int, conf: float = 0.95) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion ``x / n`` (Wilson 1927)::
+
+        (phat + z^2/(2n) -/+ z sqrt(phat (1 - phat)/n + z^2/(4 n^2))) / (1 + z^2/n)
+
+    with ``z`` the ``(1 + conf)/2`` standard normal quantile.
+    """
+    if n <= 0 or not 0 <= x <= n:
+        raise ValueError("need 0 <= x <= n and n > 0")
+    z = float(stats.norm.ppf(0.5 + conf / 2.0))
+    ph = x / n
+    centre = ph + z * z / (2.0 * n)
+    half = z * np.sqrt(ph * (1.0 - ph) / n + z * z / (4.0 * n * n))
+    den = 1.0 + z * z / n
+    return float((centre - half) / den), float((centre + half) / den)
+
+
+def holm(p_values: ArrayLike) -> NDArray[np.float64]:
+    """Holm (1979) step-down adjusted p-values, in the input order.
+
+    With the ``m`` finite p-values sorted ``p_(1) <= ... <= p_(m)``:
+    ``adj_(k) = max_{j <= k} min(1, (m - j + 1) p_(j))``. NaN entries (undefined tests) are
+    not counted in ``m`` and stay NaN. Rejecting where ``adj < a`` controls the family-wise error
+    rate at ``a``.
+    """
+    p = np.asarray(p_values, dtype=float)
+    out = np.full(p.shape, np.nan)
+    ok = np.flatnonzero(np.isfinite(p))
+    m = ok.size
+    if m == 0:
+        return out
+    order = ok[np.argsort(p[ok], kind="stable")]
+    adj = np.minimum(1.0, (m - np.arange(m)) * p[order])
+    out[order] = np.maximum.accumulate(adj)
+    return out

@@ -95,9 +95,9 @@ MUTANTS = [
     ("M24 Diebold-Mariano long-run variance without Bartlett weights", [
         (M + "backtest.py", "s += 2.0 * (1.0 - j / (L + 1.0)) * float(u[j:] @ u[:-j]) / n",
          "s += 2.0 * float(u[j:] @ u[:-j]) / n")]),
-    ("M25 implied-vol proxy uses a centred (look-ahead) window", [
-        (M + "data.py", "df.rolling(window).std(ddof=1)",
-         "df.rolling(window, center=True).std(ddof=1)")]),
+    ("M25 implied-vol rule truncation drops the wrong end of the EWMA sum", [
+        (M + "data.py", "trunc[window:] -= lam**window * full[:-window]",
+         "trunc[:-window] -= lam**window * full[window:]")]),
     ("M26 historical stress window starts after the first day's move", [
         (M + "stress.py", "base, last = before[-1], inside[-1]",
          "base, last = inside[0], inside[-1]")]),
