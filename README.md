@@ -310,9 +310,9 @@ result is in `results/mutation_check.txt`.
   therefore passes the unadjusted test in 44% of samples: the non-rejections in Table R1 are weak
   evidence of correct coverage. The power of Z2 at 7,300 days was not measured (20.5-70% at 1,000
   days against the misspecifications in Table E).
-- `scripts/reproduce.sh` regenerated every result in 1357 s wall time and 1008 s of CPU time on a
-  2-core machine shared with other jobs (load about 3); the wall time was above the 20-minute
-  target there, the single-core CPU time below it (`results/MANIFEST.txt`).
+- `scripts/reproduce.sh` regenerated every result in 1071 s wall time and 1012 s of CPU time on a
+  2-core machine shared with another job (load about 2), under the 20-minute target on that
+  machine (`results/MANIFEST.txt`).
 
 ## References
 
