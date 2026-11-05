@@ -197,8 +197,11 @@ venv/bin/python tests/mutation_check.py --out results/mutation_check.txt
 python3 scripts/check_readme_numbers.py
 ```
 
-The data are read at run time from the installed `skfolio` and `arch` wheels; nothing is copied
-into the repository. `results/MANIFEST.txt` records the commit, the commands, seeds, wall and CPU
+The data are read at run time from the installed `skfolio` and `arch` wheels; no prices and no index
+levels are stored in the repository. The result files hold the forecasts and the test results, and the
+daily P&L of the two derived test portfolios (EQ20, the mean of 20 stock returns, and STRANGLE, model
+P&L), which the dashboard plots; the S&P 500 index's own daily return is not stored (the dashboard
+reads it from `skfolio`). `results/MANIFEST.txt` records the commit, the commands, seeds, wall and CPU
 time and the machine of the last full run. The mutation check applies 38 deliberate bugs one at a
 time; its result is in `results/mutation_check.txt`.
 
