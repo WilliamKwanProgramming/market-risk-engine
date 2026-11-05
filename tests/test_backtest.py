@@ -21,6 +21,7 @@ from mre.backtest import (
     newey_west_lag,
     traffic_light,
     wilson_interval,
+    z2_contributions,
     zone_occupancy,
 )
 from mre.measures import EmpiricalPnL, LocationScalePnL, Predictive
@@ -179,6 +180,23 @@ def test_acerbi_szekely_by_hand():
     assert res["Z2"].p_value == pytest.approx(1 / 11)  # only the "+1" counts
     none = acerbi_szekely(np.zeros(4), preds, n_sim=10)
     assert none["Z1"].statistic == 0.0 and none["Z2"].statistic == 1.0
+
+
+def test_z2_contributions_sum_to_the_statistic_and_show_a_dominating_day():
+    x = np.array([-3.0, 1.0, -0.5, -2.5])
+    var, es = np.array([2.0, 2.0, 1.0, 2.0]), np.array([3.0, 3.0, 2.0, 3.0])
+    c = z2_contributions(x, var, es, level=0.975)
+    np.testing.assert_allclose(c, [-3 / (4 * 0.025 * 3), 0.0, 0.0, -2.5 / (4 * 0.025 * 3)])
+    preds = [_Fixed(v, e) for v, e in zip(var, es, strict=True)]
+    z2 = acerbi_szekely(x, preds, level=0.975, n_sim=10)["Z2"].statistic
+    assert 1.0 + c.sum() == pytest.approx(z2)
+    # the same loss on a day whose predicted ES is nearly zero: that one term is the statistic
+    es_small = es.copy()
+    es_small[0] = 1e-4
+    c2 = z2_contributions(x, np.array([1e-4, 2.0, 1.0, 2.0]), es_small, level=0.975)
+    assert c2[0] / c2.sum() > 0.999
+    with pytest.raises(ValueError):
+        z2_contributions(x, var, np.array([3.0, 0.0, 2.0, 3.0]))
 
 
 def test_acerbi_szekely_size_and_power():
