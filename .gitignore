@@ -15,3 +15,8 @@ build/
 data/raw/
 .env
 *.env
+
+# Data directories (fetched or user-supplied, never committed) and build metadata
+data/
+*.egg-info/
+.ruff_cache/
