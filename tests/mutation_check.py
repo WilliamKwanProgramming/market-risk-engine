@@ -90,8 +90,8 @@ MUTANTS = [
         (M + "models.py", '"exception": self.realized < -np.array([x.var for x in f]),',
          '"exception": self.realized > np.array([x.var for x in f]),')]),
     ("M23 Acerbi-Szekely Z2 normalised by T instead of T p", [
-        (M + "backtest.py", "z2 = ratio.sum(axis=0) / (x.shape[0] * p) + 1.0",
-         "z2 = ratio.sum(axis=0) / x.shape[0] + 1.0")]),
+        (M + "backtest.py", "z2_obs = ratio_obs / (T * p) + 1.0", "z2_obs = ratio_obs / T + 1.0"),
+        (M + "backtest.py", "z2_sim = tot / (T * p) + 1.0", "z2_sim = tot / T + 1.0")]),
     ("M24 Diebold-Mariano long-run variance without Bartlett weights", [
         (M + "backtest.py", "s += 2.0 * (1.0 - j / (L + 1.0)) * float(u[j:] @ u[:-j]) / n",
          "s += 2.0 * float(u[j:] @ u[:-j]) / n")]),
