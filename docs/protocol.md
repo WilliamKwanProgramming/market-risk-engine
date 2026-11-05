@@ -233,8 +233,29 @@ every scenario is fully revalued at the state of the close of $t-1$ (horizon 1/2
 | `stress.csv` | per portfolio, method and window: the stress-window quantities above |
 | `checks.csv` | data checks (dividend check, arch cross-check, VIX check, rows dropped, sample dates) |
 | `strangle_explain.csv`, `eq20_attribution_year.csv`, `eq20_euler_stress.csv` | descriptives |
+| `fhs_fits_<P>.csv` | per FHS refit day and factor: GARCH parameters and residual diagnostics (Part 4) |
 | `*.manifest.txt`, `tables.md` | command, seeds, commit; tables rendered by `scripts/make_tables.py` |
 
 ## Part 3. Deviations
 
 None.
+
+## Part 4. Additions made after the protocol commit, before any backtest result (2026-11-05)
+
+These add outputs or fix numerical handling; no choice of Parts 1-2 is changed.
+
+1. **Infinite volatility in a scenario.** A timing run of the STRANGLE methods on 150 days (no
+   test was computed or looked at) raised overflow warnings in FHS: the GARCH(1,1)-t fitted to the
+   `logIV:SP500` moves of 1990-1993 (17% of them exactly zero, because the rule sat at its 10%
+   floor) has conditional volatilities down to about $5 \times 10^{-6}$, so standardised residuals
+   reach about $7 \times 10^{4}$; rescaled by the next-day volatility they give log-volatility moves
+   so large that $\sigma e^{y}$ overflows. `bsm_price` returned NaN for $\sigma = \infty$, and a NaN
+   scenario sorted as the largest gain, i.e. it would have been dropped from the loss tail
+   silently. Fixed before any backtest: `bsm_price` now returns the $\sigma \to \infty$ limits (call
+   $S e^{-qT}$, put $K e^{-rT}$; tested), and `EmpiricalPnL` refuses NaN scenarios (so a NaN would
+   be a failed forecast under Part 2). The FHS method itself is run exactly as specified.
+2. **FHS fit diagnostics.** Because of item 1, stage 1 also writes `fhs_fits_<P>.csv`: for every
+   FHS refit day and factor, the GARCH parameters, the share of exactly-zero moves in the
+   1000-day window, the smallest and the next-day conditional volatility, the largest absolute
+   standardised residual and the scenario move it implies. These are descriptive; they are not
+   tests and do not change any forecast.

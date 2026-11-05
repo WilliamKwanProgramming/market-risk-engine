@@ -138,7 +138,9 @@ class Portfolio:
                  horizon: float = 1.0 / TRADING_DAYS) -> NDArray[np.float64]:
         """Full-revaluation P&L per scenario and position, shape ``(n_scenarios, n_positions)``.
 
-        ``moves`` has one column per factor, in the order of :meth:`factor_names`.
+        ``moves`` has one column per factor, in the order of :meth:`factor_names`. A volatility
+        move so large that ``sigma e^y`` overflows prices the option at the ``sigma -> inf``
+        limit of :func:`mre.pricing.bsm_price`.
         """
         x, col = self._factor_columns(moves)
         out = np.empty((x.shape[0], len(self.positions)))
@@ -149,7 +151,8 @@ class Portfolio:
                 out[:, j] = p.quantity * (S1 - S)
                 continue
             sig = state.vol[p.underlying]
-            sig1 = sig * np.exp(x[:, col[f"logIV:{p.underlying}"]])
+            with np.errstate(over="ignore"):  # an overflowing move gives sigma = inf (a limit)
+                sig1 = sig * np.exp(x[:, col[f"logIV:{p.underlying}"]])
             r, q = state.rate, state.q(p.underlying)
             v0 = bsm_price(S, p.strike, p.expiry, r, q, sig, p.is_call)
             v1 = bsm_price(S1, p.strike, p.expiry - horizon, r, q, sig1, p.is_call)

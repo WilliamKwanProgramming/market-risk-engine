@@ -152,6 +152,18 @@ def test_limit_t_to_zero_converges_to_intrinsic():
         np.testing.assert_allclose(p, [5.0, 0.0], atol=5 * np.sqrt(T))
 
 
+def test_limit_sigma_to_infinity():
+    S, K, T, r, q = 100.0, 98.0, 0.1, 0.03, 0.02
+    with np.errstate(all="raise"):
+        c = bsm_price(S, K, T, r, q, np.inf, True)
+        p = bsm_price(S, K, T, r, q, np.inf, False)
+        expired = bsm_price(S, K, 0.0, r, q, np.inf, False)
+    assert c == pytest.approx(S * np.exp(-q * T)) and p == pytest.approx(K * np.exp(-r * T))
+    assert expired == 0.0
+    # the finite prices approach the limits
+    assert bsm_price(S, K, T, r, q, 200.0, False) == pytest.approx(p, rel=1e-6)
+
+
 def test_limit_sigma_to_zero_is_discounted_forward_intrinsic():
     S, K, T, r, q = 100.0, 98.0, 1.0, 0.05, 0.01
     fwd_intr_call = max(S * np.exp(-q * T) - K * np.exp(-r * T), 0.0)

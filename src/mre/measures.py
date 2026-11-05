@@ -125,7 +125,10 @@ class EmpiricalPnL(Predictive):
     scenarios: NDArray[np.float64]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_sorted", np.sort(np.asarray(self.scenarios, float).ravel()))
+        srt = np.sort(np.asarray(self.scenarios, float).ravel())
+        if srt.size and np.isnan(srt[-1]):  # NaN sorts last: it would count as a gain
+            raise ValueError("P&L scenarios contain NaN")
+        object.__setattr__(self, "_sorted", srt)
 
     def var(self, level: float) -> float:
         return _var_es_sorted(self._sorted, level, level)[0]
