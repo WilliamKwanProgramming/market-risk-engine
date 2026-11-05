@@ -118,3 +118,14 @@ def test_arch_loaders_smoke():
     assert load_arch("vix").index[-1] == pd.Timestamp("2019-01-03")
     with pytest.raises(ValueError):
         load_arch("gold")
+
+
+def test_ewma_vol_rule_truncation_with_a_short_window():
+    from mre.models import ewma_covariance
+
+    r = pd.Series(np.random.default_rng(4).normal(0, 0.01, 40),
+                  index=pd.bdate_range("2020-01-01", periods=40))
+    v = ewma_vol_rule(r, multiple=1.0, floor=0.0, lam=0.8, window=5)
+    for t in (2, 4, 5, 6, 20, 39):
+        s2 = float(ewma_covariance(r.iloc[:t + 1].to_numpy(), 0.8, 5)[0, 0])
+        assert v.iloc[t] == pytest.approx(np.sqrt(252 * s2), rel=1e-10)
