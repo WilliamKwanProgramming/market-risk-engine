@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Render the validation results (results/validation/*.csv) as markdown tables.
+"""Render the results as markdown tables.
 
-Writes results/validation/tables.md and replaces the block between ``<!-- tables:begin -->`` and
-``<!-- tables:end -->`` in docs/validation.md with the same text. Every number in the tables comes
-from the CSV files; nothing is typed in.
+Simulated data: results/validation/*.csv -> results/validation/tables.md and the block between
+``<!-- tables:begin -->`` and ``<!-- tables:end -->`` in docs/validation.md.
+Real data: results/realdata/*.csv -> results/realdata/tables.md and the same block in
+docs/findings.md (if that file exists). Every number in the tables comes from the CSV files;
+nothing is typed in.
 
 Usage: python3 scripts/make_tables.py [--results results/validation] [--doc docs/validation.md]
+       [--realdata results/realdata] [--findings docs/findings.md]
 """
 
 from __future__ import annotations
@@ -228,10 +231,158 @@ def hs_regime_tables(res: Path) -> list[str]:
     return parts
 
 
+RD_TITLE = "real data: skfolio S&P 500 panel 1990-2022"
+RD_METHODS = ["HS250", "HS500", "HS1000", "EWMA-N", "EWMA-T", "FHS", "MC"]
+RD_PORTS = ["EQ20", "SPX", "STRANGLE"]
+
+
+def fp(p: float) -> str:
+    """p-value: three decimals, or scientific notation below 0.001."""
+    if not np.isfinite(p):
+        return "-"
+    return f"{p:.1e}" if p < 0.001 else f"{p:.3f}"
+
+
+def fp_holm(p: float, h: float) -> str:
+    """Raw p-value with the Holm-adjusted one; a finding (Holm < 0.05) is in bold."""
+    if not np.isfinite(p):
+        return "-"
+    cell = f"{fp(p)} ({fp(h)})"
+    return f"**{cell}**" if h < 0.05 else cell
+
+
+def realdata_tables(res: Path) -> list[str]:
+    f = res / "summary.csv"
+    if not f.exists():
+        return []
+    d = pd.read_csv(f)
+    d["order"] = d.method.map(RD_METHODS.index) + 10 * d.portfolio.map(RD_PORTS.index)
+    d = d.sort_values("order")
+    n_fam = {c: int(d[c].notna().sum()) for c in ("kupiec_p", "ind_p", "cc_p", "z2_p", "dm_p")}
+    by_year = pd.read_csv(res / "by_year.csv")
+    stress = pd.read_csv(res / "stress.csv")
+    fails = pd.read_csv(res / "failures.csv")
+    parts = []
+    span = {p: f"{g.first_day.iloc[0]} to {g.last_day.iloc[0]}, {int(g.days.iloc[0])} days"
+            for p, g in d.groupby("portfolio")}
+    rows = []
+    for r in d.itertuples():
+        rows.append([r.portfolio, r.method, f"{r.exceptions} ({0.01 * r.days:.0f})",
+                     f"{100 * r.rate:.2f} [{100 * r.wilson_lo:.2f}, {100 * r.wilson_hi:.2f}]",
+                     fp_holm(r.kupiec_p, r.kupiec_holm), fp_holm(r.ind_p, r.ind_holm),
+                     fp_holm(r.cc_p, r.cc_holm),
+                     f"{100 * r.green:.0f} / {100 * r.yellow:.0f} / {100 * r.red:.0f}"])
+    parts.append(
+        f"**Table R1. {RD_TITLE}: 99% VaR backtests over the full evaluation sample** (EQ20 and "
+        f"SPX: {span['EQ20']}; STRANGLE: {span['STRANGLE']}; {len(fails)} failed forecasts). "
+        "Exceptions with the 1% expectation in parentheses; exception rate (%) with the 95% "
+        "Wilson interval; p-values raw (Holm-adjusted within the family of "
+        f"{n_fam['kupiec_p']} cells), bold where the Holm-adjusted p-value is below 0.05 (a "
+        "finding). Zones: share (%) of rolling 250-day windows green / yellow / red. STRANGLE "
+        "is model P&L under an assumed implied-volatility rule.\n\n"
+        + md_table(["Portfolio", "Method", "Exceptions", "Rate % [Wilson 95%]", "Kupiec",
+                    "Christoffersen ind.", "Christoffersen CC", "Zones G / Y / R"], rows))
+    rows = []
+    for r in d.itertuples():
+        rows.append([r.portfolio, r.method, f"{r.z2:.3f}", fp_holm(r.z2_p, r.z2_holm),
+                     f"{r.shortfall_ratio:.2f} ({r.exceedances975})", f"{r.fz0_mean:.4f}",
+                     "-" if not np.isfinite(r.dm_stat) else f"{r.dm_stat:.2f}",
+                     fp_holm(r.dm_p, r.dm_holm)])
+    parts.append(
+        f"**Table R2. {RD_TITLE}: 97.5% ES backtest and joint VaR/ES scores.** Z2 = "
+        f"Acerbi-Szekely Z2 ({int(d.z2_n_sim.iloc[0])} simulations under each method's own "
+        "predictive distributions; negative = realised tail losses larger than predicted), "
+        f"p-value raw (Holm over {n_fam['z2_p']} cells). Shortfall ratio = mean realised loss "
+        "over mean predicted ES on the days with loss above the 97.5% VaR (number of such days "
+        "in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale "
+        "differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against "
+        f"EWMA-N (negative = lower score than EWMA-N), Newey-West lag {int(d.dm_lag.iloc[0])}, "
+        f"p-value raw (Holm over {n_fam['dm_p']} cells).\n\n"
+        + md_table(["Portfolio", "Method", "Z2", "Z2 p (Holm)", "Shortfall ratio (n)",
+                    "FZ0", "DM", "DM p (Holm)"], rows))
+    windows = list(dict.fromkeys(stress.window))
+    rows = []
+    for (port, m), g in stress.groupby(["portfolio", "method"], sort=False):
+        cells = [port, m]
+        for w in windows:
+            x = g[g.window == w].iloc[0]
+            ratio = "-" if not np.isfinite(x.shortfall_ratio) else f"{x.shortfall_ratio:.2f}"
+            cells += [f"{x.exceptions} / {x.days}", f"{ratio} ({x.exceedances975})"]
+        rows.append(cells)
+    head = ["Portfolio", "Method"]
+    for w in windows:
+        x = stress[stress.window == w].iloc[0]
+        head += [f"{w}: exc. / days", f"{w}: shortfall ratio (n)"]
+    wdesc = "; ".join(f"{w} = {stress[stress.window == w].start.iloc[0]} to "
+                      f"{stress[stress.window == w].end.iloc[0]}" for w in windows)
+    parts.append(
+        f"**Table R3. {RD_TITLE}: pre-specified stress windows.** 99% VaR exceptions / "
+        "evaluation days in the window (1% of the days is the expectation); shortfall ratio as "
+        f"in R2 over the 97.5% exceedances inside the window (their number in parentheses). "
+        f"Windows: {wdesc}. No test is applied inside the windows.\n\n"
+        + md_table(head, rows))
+    rows = []
+    n_years = by_year.year.nunique()
+    for (port, m), g in by_year.groupby(["portfolio", "method"], sort=False):
+        rows.append([port, m, str(int((g.kupiec_p < 0.05).sum())),
+                     str(int((g.kupiec_holm < 0.05).sum())), str(int((g.cc_p < 0.05).sum())),
+                     str(int((g.cc_holm < 0.05).sum())), str(int((g.ind_holm < 0.05).sum())),
+                     str(int(g.exceptions.max())), str(int(g.loc[g.exceptions.idxmax(), "year"]))])
+    parts.append(
+        f"**Table R4. {RD_TITLE}: calendar-year backtests ({n_years} years, "
+        f"{len(by_year)} cells per test family).** Number of years in which the test rejects at "
+        "5% before (raw) and after the Holm adjustment over all cells of the family; largest "
+        "number of exceptions in one year and that year.\n\n"
+        + md_table(["Portfolio", "Method", "Kupiec raw", "Kupiec Holm", "CC raw", "CC Holm",
+                    "Ind. Holm", "Max exc. in a year", "Year"], rows))
+    return parts
+
+
+def realdata_check_tables(res: Path) -> list[str]:
+    parts = []
+    f = res / "checks.csv"
+    if f.exists():
+        c = pd.read_csv(f)
+        rows = [[r.check, f"{r.value:.6g}", str(r.note)] for r in c.itertuples()]
+        parts.append(f"**Table R5. {RD_TITLE}: data checks.**\n\n"
+                     + md_table(["Check", "Value", "Note"], rows))
+    fits = sorted(res.glob("fhs_fits_*.csv"))
+    if fits:
+        rows = []
+        for f in fits:
+            g = pd.read_csv(f)
+            for fac, h in g.groupby("factor", sort=False):
+                rows.append([f.stem.replace("fhs_fits_", ""), fac, str(len(h)),
+                             str(int((~h.converged).sum())),
+                             f"{h.zero_move_share.max():.2f}", f"{h.max_abs_z.median():.3g}",
+                             f"{h.max_abs_z.max():.3g}",
+                             f"{h.max_abs_scenario_move.max():.3g}"])
+        parts.append(
+            f"**Table R6. {RD_TITLE}: FHS GARCH(1,1)-t fits, one per 20 trading days per "
+            "factor.** Non-converged = fits whose optimiser did not report success; zero-move "
+            "share = largest share of exactly-zero moves in a 1000-day window; |z| = largest "
+            "absolute standardised residual in the window (median and maximum over refits); "
+            "largest scenario move = maximum of next-day volatility times largest |z| (a log "
+            "move of the factor).\n\n"
+            + md_table(["Portfolio", "Factor", "Fits", "Non-converged", "Zero-move share",
+                        "max |z| median", "max |z| max", "Largest scenario move"], rows))
+    return parts
+
+
+def replace_block(doc: Path, text: str) -> None:
+    body = doc.read_text()
+    new = re.sub(r"<!-- tables:begin -->.*<!-- tables:end -->",
+                 lambda _: "<!-- tables:begin -->\n" + text + "<!-- tables:end -->", body,
+                 flags=re.S)
+    doc.write_text(new)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--results", type=Path, default=REPO / "results" / "validation")
     ap.add_argument("--doc", type=Path, default=REPO / "docs" / "validation.md")
+    ap.add_argument("--realdata", type=Path, default=REPO / "results" / "realdata")
+    ap.add_argument("--findings", type=Path, default=REPO / "docs" / "findings.md")
     args = ap.parse_args()
     parts = (garch_tables(args.results) + size_power_tables(args.results)
              + basel_tables(args.results) + option_tables(args.results)
@@ -240,12 +391,16 @@ def main() -> None:
     (args.results / "tables.md").write_text(
         "<!-- Generated by scripts/make_tables.py from the CSV files in this directory. -->\n\n"
         + text)
-    doc = args.doc.read_text()
-    new = re.sub(r"<!-- tables:begin -->.*<!-- tables:end -->",
-                 lambda _: "<!-- tables:begin -->\n" + text + "<!-- tables:end -->", doc,
-                 flags=re.S)
-    args.doc.write_text(new)
-    print(f"wrote {len(parts)} tables")
+    replace_block(args.doc, text)
+    rd = realdata_tables(args.realdata) + realdata_check_tables(args.realdata)
+    if rd:
+        rtext = "\n\n".join(rd) + "\n"
+        (args.realdata / "tables.md").write_text(
+            "<!-- Generated by scripts/make_tables.py from the CSV files in this directory. "
+            "-->\n\n" + rtext)
+        if args.findings.exists():
+            replace_block(args.findings, rtext)
+    print(f"wrote {len(parts)} simulated-data tables and {len(rd)} real-data tables")
 
 
 if __name__ == "__main__":
