@@ -1,4 +1,8 @@
-"""The repository stores no price or index data: result files carry none."""
+"""No result file has a price, index-level or index-return column.
+
+Derived series still determine the data they come from (docs/protocol.md, Part 6); this test
+checks what the repository can check: the column names.
+"""
 
 from pathlib import Path
 
