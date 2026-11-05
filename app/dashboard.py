@@ -60,37 +60,48 @@ def method_frame(fc: pd.DataFrame, method: str) -> pd.DataFrame:
 def zones(d: pd.DataFrame) -> pd.DataFrame:
     """Exceptions in the last 250 days and the Basel zone, from day 250 on."""
     c = d["exception"].astype(int).rolling(250).sum()
-    z = pd.DataFrame({"date": d["date"], "exceptions in 250 days": c}).dropna()
+    z = pd.DataFrame({"date": d["date"], "count": c}).dropna()
     z["zone"] = np.select([z.iloc[:, 1] <= 4, z.iloc[:, 1] <= 9], ["green", "yellow"], "red")
     return z
 
 
-def loss_chart(d: pd.DataFrame, title: str, height: int = 320) -> alt.LayerChart:
+def loss_chart(d: pd.DataFrame, title: str, height: int = 320,
+               date_format: str = "%Y") -> alt.LayerChart:
     long = d.melt(id_vars=["date"], value_vars=["loss", "VaR 99%", "ES 97.5%"],
                   var_name="series", value_name="value")
     color = alt.Color("series:N", scale=alt.Scale(domain=["loss", "VaR 99%", "ES 97.5%"],
                                                   range=[C_LOSS, C_VAR, C_ES]),
                       legend=alt.Legend(orient="top", title=None))
     lines = alt.Chart(long).mark_line(strokeWidth=1).encode(
-        x=alt.X("date:T", title=None), y=alt.Y("value:Q", title="loss (positive) / risk"),
+        x=alt.X("date:T", title=None, axis=alt.Axis(format=date_format)),
+        y=alt.Y("value:Q", title="loss (positive) / risk"),
         color=color, tooltip=["date:T", "series:N", alt.Tooltip("value:Q", format=".4g")])
-    exc = alt.Chart(d[d["exception"]]).mark_point(size=40, filled=True, color=C_EXC).encode(
+    exc = alt.Chart(d[d["exception"]]).mark_point(size=60, filled=True, color=C_EXC,
+                                                  opacity=1).encode(
         x="date:T", y="loss:Q",
         tooltip=["date:T", alt.Tooltip("loss:Q", format=".4g"),
                  alt.Tooltip("VaR 99%:Q", format=".4g")])
     return (lines + exc).properties(title=title, height=height)
 
 
-def zone_chart(z: pd.DataFrame) -> alt.Chart:
-    return alt.Chart(z).mark_bar(width=1).encode(
-        x=alt.X("date:T", title=None),
-        y=alt.Y("exceptions in 250 days:Q"),
+def zone_chart(z: pd.DataFrame) -> alt.LayerChart:
+    """Rolling exception count as a step line over the Basel zone bands."""
+    top = max(12.0, float(z.iloc[:, 1].max()) + 1.0)
+    bands = pd.DataFrame({"zone": ["green", "yellow", "red"], "lo": [0.0, 4.5, 9.5],
+                          "hi": [4.5, 9.5, top]})
+    band = alt.Chart(bands).mark_rect(opacity=0.18).encode(
+        y=alt.Y("lo:Q", title="exceptions", scale=alt.Scale(domain=[0, top])),
+        y2="hi:Q",
         color=alt.Color("zone:N", scale=alt.Scale(domain=list(ZONE_COLORS),
                                                   range=list(ZONE_COLORS.values())),
-                        legend=alt.Legend(orient="top", title="Basel zone")),
-        tooltip=["date:T", "exceptions in 250 days:Q", "zone:N"],
-    ).properties(title="Exceptions over the last 250 days (green 0-4, yellow 5-9, red 10+)",
-                 height=180)
+                        legend=alt.Legend(orient="right", title="Basel zone")))
+    line = alt.Chart(z).mark_line(interpolate="step-after", strokeWidth=1.5,
+                                  color="#0b0b0b").encode(
+        x=alt.X("date:T", title=None, axis=alt.Axis(format="%Y")),
+        y="count:Q",
+        tooltip=["date:T", "count:Q", "zone:N"])
+    return (band + line).properties(
+        title="Exceptions over the last 250 days (green 0-4, yellow 5-9, red 10+)", height=240)
 
 
 def fmt_p(p: float) -> str:
@@ -120,7 +131,9 @@ def about(summary: pd.DataFrame) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Market-risk backtests", layout="wide")
-    st.title("Market-risk backtests")
+    st.markdown("<style>.block-container {padding-top: 2rem; padding-bottom: 1rem}</style>",
+                unsafe_allow_html=True)
+    st.header("Market-risk backtests")
     st.caption("Real data: skfolio S&P 500 panel 1990-2022 (precomputed results; "
                "this page runs no model).")
     summary = read_csv(str(RD / "summary.csv"))
@@ -137,15 +150,15 @@ def main() -> None:
     with tabs[0]:
         row = summary[(summary.portfolio == portfolio) & (summary.method == method)].iloc[0]
         k = st.columns(4)
-        k[0].metric("Exceptions (99% VaR)", f"{int(row.exceptions)}",
-                    f"expected {0.01 * row.days:.0f}", delta_color="off")
+        k[0].metric(f"Exceptions of 99% VaR (expected {0.01 * row.days:.0f})",
+                    f"{int(row.exceptions)}")
         k[1].metric("Exception rate", f"{100 * row.rate:.2f}%",
-                    f"Wilson 95% [{100 * row.wilson_lo:.2f}, {100 * row.wilson_hi:.2f}]",
-                    delta_color="off")
+                    help=f"Wilson 95% interval {100 * row.wilson_lo:.2f}-"
+                         f"{100 * row.wilson_hi:.2f}%")
         k[2].metric("Kupiec p (Holm)", fmt_p(row.kupiec_holm))
         k[3].metric("Red-zone windows", f"{100 * row.red:.0f}%")
         st.altair_chart(loss_chart(d, f"{portfolio}, {method}: realised loss against the "
-                                      "forecasts (red points: exceptions)"),
+                                      "forecasts (red points: exceptions)", 300),
                         use_container_width=True)
         st.altair_chart(zone_chart(zones(d)), use_container_width=True)
 
@@ -195,11 +208,15 @@ def main() -> None:
         w = st.radio("Window", list(WINDOWS), horizontal=True)
         a, b = WINDOWS[w]
         sub = d[(d.date >= a) & (d.date <= b)]
-        st.altair_chart(loss_chart(sub, f"{portfolio}, {method}, {w} ({a} to {b})", 300),
+        st.altair_chart(loss_chart(sub, f"{portfolio}, {method}, {w} ({a} to {b})", 300,
+                                   "%d %b %Y"),
                         use_container_width=True)
         t = stress[(stress.portfolio == portfolio) & (stress.window == w)].set_index("method")
-        st.dataframe(t.loc[METHODS, ["days", "exceptions", "expected", "exceedances975",
-                                     "shortfall_ratio"]], use_container_width=True)
+        t = t.loc[METHODS, ["days", "exceptions", "expected", "exceedances975",
+                            "shortfall_ratio"]].round(2)
+        t.columns = ["days", "99% VaR exceptions", "expected", "97.5% exceedances",
+                     "shortfall ratio"]
+        st.dataframe(t, use_container_width=True)
 
     with tabs[4]:
         if portfolio == "STRANGLE":
