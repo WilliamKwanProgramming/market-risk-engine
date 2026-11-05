@@ -1,0 +1,10 @@
+check,value,note
+stocks_rows_dropped,0,clean_prices(policy='drop')
+index_rows_dropped,0,clean_prices(policy='drop')
+MSFT simple return 2004-11-15,0.018593071,ex-date of the USD 3.00 special dividend; unadjusted prices would fall by about 10%
+arch sp500 common return dates,5030,1999-01-05 to 2018-12-31
+arch sp500 max abs return difference,1.1407038e-07,on 2016-05-05
+IV rule vs VIX/100 common dates,1259,2014-01-03 to 2019-01-03
+IV rule vs VIX/100 correlation,0.82253848,"Pearson, levels; sanity check only, the rule is not recalibrated"
+IV rule / (VIX/100) mean ratio,0.98661083,mean of daily ratios
+IV rule share of days at the 10% floor,0.10972603,evaluation period 1994-01-03 to 2022-12-28
