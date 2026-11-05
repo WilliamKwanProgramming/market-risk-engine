@@ -170,19 +170,23 @@ MODELS = [
 
 @pytest.mark.parametrize("model", MODELS, ids=lambda m: m.name)
 def test_lookahead_guard(model):
-    """Forecasts for days < t do not change when data from day t on are changed or deleted."""
+    """The forecast for day t (made at the close of t-1) does not change when the data of day t
+    and later are changed or deleted."""
     x = _returns(1400, seed=9)
     t = 1250
     base = rolling_forecasts(model, x, 1100, 1300)
     changed = x.copy()
     changed[t:] = np.random.default_rng(1).standard_normal(1400 - t) * 0.05
+    changed[t] = -0.25  # a loss far in the tail: any leak of day t into its forecast shows
     alt = rolling_forecasts(model, changed, 1100, 1300)
-    cut = rolling_forecasts(model, x[:t], 1100, t)
-    for i in range(t - 1100):
+    cut = rolling_forecasts(model, x[:t + 1], 1100, t + 1)  # nothing after day t
+    for i in range(t - 1100 + 1):  # every forecast up to and including the one for day t
         assert alt.forecasts[i].var == base.forecasts[i].var
         assert alt.forecasts[i].es == base.forecasts[i].es
         assert cut.forecasts[i].var == base.forecasts[i].var
-    # ... and the forecast for day t itself depends on day t - 1 (the guard is not vacuous)
+    # ... the realised P&L of day t does use day t, and the forecast for day t depends on
+    # day t - 1 (so the guard is not vacuous)
+    assert alt.realized[t - 1100] != base.realized[t - 1100]
     shifted = x.copy()
     shifted[t - 1] = -0.08
     later = rolling_forecasts(model, shifted, 1100, 1300)
