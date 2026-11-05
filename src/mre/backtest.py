@@ -40,6 +40,7 @@ __all__ = [
     "zone_occupancy",
     "binomial_zone_probabilities",
     "BASEL_PLUS_FACTOR",
+    "AcerbiSzekelySimulation",
     "acerbi_szekely",
     "fz0_loss",
     "diebold_mariano",
@@ -191,18 +192,73 @@ def binomial_zone_probabilities(n: int = 250, p: float = 0.01) -> dict[str, floa
     return {"green": cdf4, "yellow": cdf9 - cdf4, "red": 1.0 - cdf9}
 
 
-def _as_statistics(x: NDArray[np.float64], var: NDArray[np.float64], es: NDArray[np.float64],
-                   p: float) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Z1 and Z2 for P&L ``x`` of shape (T,) or (T, M) against fixed VaR/ES of shape (T,)."""
-    if x.ndim == 1:
-        x = x[:, None]
-    ind = (x + var[:, None]) < 0.0
-    ratio = np.where(ind, x / es[:, None], 0.0)
-    n_exc = ind.sum(axis=0)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        z1 = np.where(n_exc > 0, ratio.sum(axis=0) / np.maximum(n_exc, 1) + 1.0, 0.0)
-    z2 = ratio.sum(axis=0) / (x.shape[0] * p) + 1.0
-    return z1, z2
+class AcerbiSzekelySimulation:
+    """Acerbi-Szekely (2014) Z1 and Z2 with Monte Carlo p-values, accumulated day by day.
+
+    Feed one day at a time with :meth:`add`; for each day ``n_sim`` P&L values are drawn from the
+    model's predictive distribution and only the simulated tail events ``X + VaR < 0`` are kept
+    (day, simulation number and ``X / ES``). Memory is proportional to ``n_sim`` plus the number
+    of simulated tail events (about ``T n_sim p``), never ``T x n_sim``. :meth:`result` computes
+    the statistics on all days or on a subset of them, so a common evaluation sample can be
+    imposed after the forecasts are made. Draws are taken from one generator seeded with
+    ``seed`` in the order the days are added, so :func:`acerbi_szekely` gives the same numbers as
+    a version that draws the whole ``(T, n_sim)`` array at once.
+    """
+
+    def __init__(self, level: float = 0.975, n_sim: int = 2000, seed: int = 0):
+        if not 0.0 < level < 1.0:
+            raise ValueError("level must be in (0, 1)")
+        self.level, self.n_sim = level, int(n_sim)
+        self._rng = np.random.default_rng(seed)
+        self._obs: list[tuple[int, float, float, float]] = []
+        self._sim_day: list[NDArray[np.int64]] = []
+        self._sim_idx: list[NDArray[np.int64]] = []
+        self._sim_ratio: list[NDArray[np.float64]] = []
+
+    def add(self, day: int, realized: float, predictive: Predictive) -> None:
+        """Record day ``day`` (any integer label) with realised P&L and its predictive."""
+        var, es = predictive.var(self.level), predictive.es(self.level)
+        x = predictive.sample(self._rng, self.n_sim)
+        hit = np.flatnonzero(x + var < 0.0)
+        self._obs.append((int(day), float(realized), float(var), float(es)))
+        self._sim_day.append(np.full(hit.size, int(day)))
+        self._sim_idx.append(hit)
+        self._sim_ratio.append(x[hit] / es)
+
+    @property
+    def days(self) -> NDArray[np.int64]:
+        """Labels of the days added so far, in order."""
+        return np.array([o[0] for o in self._obs], dtype=np.int64)
+
+    def result(self, days: ArrayLike | None = None) -> dict[str, TestResult]:
+        """Z1 and Z2 on the given day labels (all days if ``None``); formulas in
+        :func:`acerbi_szekely`."""
+        obs = np.array(self._obs, dtype=float).reshape(-1, 4)
+        keep = np.ones(len(obs), bool) if days is None else np.isin(obs[:, 0], days)
+        x, var, es = obs[keep, 1], obs[keep, 2], obs[keep, 3]
+        T, p, M = int(keep.sum()), 1.0 - self.level, self.n_sim
+        if T == 0:
+            raise ValueError("no days selected")
+        hit = x + var < 0.0
+        n_exc = int(hit.sum())
+        ratio_obs = float(np.sum(x[hit] / es[hit]))
+        z1_obs = ratio_obs / n_exc + 1.0 if n_exc > 0 else 0.0
+        z2_obs = ratio_obs / (T * p) + 1.0
+        sd = np.concatenate(self._sim_day) if self._sim_day else np.empty(0, np.int64)
+        si = np.concatenate(self._sim_idx) if self._sim_idx else np.empty(0, np.int64)
+        sr = np.concatenate(self._sim_ratio) if self._sim_ratio else np.empty(0)
+        if days is not None:
+            sel = np.isin(sd, obs[keep, 0])
+            si, sr = si[sel], sr[sel]
+        tot = np.bincount(si, weights=sr, minlength=M)
+        cnt = np.bincount(si, minlength=M)
+        z1_sim = np.where(cnt > 0, tot / np.maximum(cnt, 1) + 1.0, 0.0)
+        z2_sim = tot / (T * p) + 1.0
+        p1 = (1.0 + np.sum(z1_sim <= z1_obs)) / (M + 1.0)
+        p2 = (1.0 + np.sum(z2_sim <= z2_obs)) / (M + 1.0)
+        common = {"n_exceptions": n_exc, "n_sim": M, "level": self.level, "n_days": T}
+        return {"Z1": TestResult(z1_obs, float(p1), None, common),
+                "Z2": TestResult(z2_obs, float(p2), None, common)}
 
 
 def acerbi_szekely(realized: ArrayLike, predictives: Sequence[Predictive], level: float = 0.975,
@@ -222,24 +278,16 @@ def acerbi_szekely(realized: ArrayLike, predictives: Sequence[Predictive], level
     p-values are one-sided Monte Carlo p-values under the model's own predictive distributions:
     ``n_sim`` paths are simulated with ``X_t^(m)`` drawn independently from ``P_t`` for every
     day t (``Predictive.sample``), the statistics are recomputed with the same ``VaR_t`` and
-    ``ES_t``, and ``p = (1 + #{Z^(m) <= Z_obs}) / (n_sim + 1)``.
+    ``ES_t``, and ``p = (1 + #{Z^(m) <= Z_obs}) / (n_sim + 1)``. The simulation is accumulated
+    day by day (:class:`AcerbiSzekelySimulation`), so memory does not grow with ``T x n_sim``.
     """
     x = np.asarray(realized, dtype=float)
     if len(predictives) != x.size:
         raise ValueError("one predictive distribution per realised value is needed")
-    p = 1.0 - level
-    var = np.array([d.var(level) for d in predictives])
-    es = np.array([d.es(level) for d in predictives])
-    z1_obs, z2_obs = (float(v[0]) for v in _as_statistics(x, var, es, p))
-    rng = np.random.default_rng(seed)
-    sims = np.vstack([d.sample(rng, n_sim) for d in predictives])
-    z1_sim, z2_sim = _as_statistics(sims, var, es, p)
-    p1 = (1.0 + np.sum(z1_sim <= z1_obs)) / (n_sim + 1.0)
-    p2 = (1.0 + np.sum(z2_sim <= z2_obs)) / (n_sim + 1.0)
-    n_exc = int(np.sum(x + var < 0.0))
-    common = {"n_exceptions": n_exc, "n_sim": n_sim, "level": level}
-    return {"Z1": TestResult(z1_obs, float(p1), None, common),
-            "Z2": TestResult(z2_obs, float(p2), None, common)}
+    sim = AcerbiSzekelySimulation(level, n_sim, seed)
+    for t, (xt, d) in enumerate(zip(x, predictives, strict=True)):
+        sim.add(t, float(xt), d)
+    return sim.result()
 
 
 def fz0_loss(realized: ArrayLike, var: ArrayLike, es: ArrayLike, level: float) -> NDArray:

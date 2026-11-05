@@ -9,6 +9,7 @@ from scipy import stats
 
 from mre.backtest import (
     BASEL_PLUS_FACTOR,
+    AcerbiSzekelySimulation,
     acerbi_szekely,
     binomial_zone_probabilities,
     christoffersen,
@@ -20,7 +21,7 @@ from mre.backtest import (
     traffic_light,
     zone_occupancy,
 )
-from mre.measures import LocationScalePnL, Predictive
+from mre.measures import EmpiricalPnL, LocationScalePnL, Predictive
 
 
 def test_exceptions_strict_inequality():
@@ -191,6 +192,77 @@ def test_acerbi_szekely_size_and_power():
     # 100 replications: binomial sd of the rejection rate at 5% is 2.2 percentage points
     assert 0.0 < np.mean(rej_null) < 0.12
     assert np.mean(rej_alt) > 0.6
+
+
+def _as_dense_reference(x, preds, level, n_sim, seed):
+    """Wave-1 implementation: the whole (T, n_sim) array at once (independent reference)."""
+    p = 1.0 - level
+    var = np.array([d.var(level) for d in preds])
+    es = np.array([d.es(level) for d in preds])
+    rng = np.random.default_rng(seed)
+    sims = np.vstack([d.sample(rng, n_sim) for d in preds])
+
+    def stats_(z):
+        ind = (z + var[:, None]) < 0
+        ratio = np.where(ind, z / es[:, None], 0.0)
+        n = ind.sum(axis=0)
+        z1 = np.where(n > 0, ratio.sum(axis=0) / np.maximum(n, 1) + 1.0, 0.0)
+        return z1, ratio.sum(axis=0) / (z.shape[0] * p) + 1.0
+
+    z1o, z2o = (float(v[0]) for v in stats_(x[:, None]))
+    z1s, z2s = stats_(sims)
+    return (z1o, (1 + np.sum(z1s <= z1o)) / (n_sim + 1), z2o,
+            (1 + np.sum(z2s <= z2o)) / (n_sim + 1))
+
+
+def test_acerbi_szekely_matches_dense_reference():
+    rng = np.random.default_rng(7)
+    T = 300
+    preds = [LocationScalePnL(0.0, s, "t", 5.0) for s in rng.uniform(0.5, 2.0, T // 2)]
+    preds += [EmpiricalPnL(rng.standard_normal(400) * s) for s in rng.uniform(0.5, 2, T // 2)]
+    x = 1.2 * np.array([d.sample(rng, 1)[0] for d in preds])
+    res = acerbi_szekely(x, preds, level=0.975, n_sim=500, seed=3)
+    z1, p1, z2, p2 = _as_dense_reference(x, preds, 0.975, 500, 3)
+    assert res["Z1"].statistic == pytest.approx(z1, abs=1e-12)
+    assert res["Z2"].statistic == pytest.approx(z2, abs=1e-12)
+    assert res["Z1"].p_value == p1 and res["Z2"].p_value == p2
+
+
+def test_acerbi_szekely_subset_equals_running_on_the_subset():
+    rng = np.random.default_rng(8)
+    preds = [LocationScalePnL(0.0, s) for s in rng.uniform(0.5, 2.0, 200)]
+    x = 1.3 * np.array([d.sample(rng, 1)[0] for d in preds])
+    sim = AcerbiSzekelySimulation(0.975, 400, seed=1)
+    for t in range(200):
+        sim.add(t, x[t], preds[t])
+    keep = np.arange(0, 200, 2)
+    sub = sim.result(keep)
+    # the same simulated draws restricted to the kept days, recomputed densely
+    rng2 = np.random.default_rng(1)
+    draws = np.vstack([d.sample(rng2, 400) for d in preds])[keep]
+    var = np.array([preds[t].var(0.975) for t in keep])
+    es = np.array([preds[t].es(0.975) for t in keep])
+    ratio = np.where(draws + var[:, None] < 0, draws / es[:, None], 0.0)
+    z2s = ratio.sum(axis=0) / (keep.size * 0.025) + 1.0
+    xo = x[keep]
+    z2o = np.sum(np.where(xo + var < 0, xo / es, 0.0)) / (keep.size * 0.025) + 1.0
+    assert sub["Z2"].statistic == pytest.approx(z2o)
+    assert sub["Z2"].p_value == (1 + np.sum(z2s <= z2o)) / 401
+    assert sub["Z2"].details["n_days"] == 100
+
+
+def test_acerbi_szekely_memory_does_not_grow_with_days_times_sims():
+    import tracemalloc
+
+    T, M = 1000, 5000
+    preds = [LocationScalePnL(0.0, 1.0)] * T
+    x = np.zeros(T)
+    tracemalloc.start()
+    acerbi_szekely(x, preds, n_sim=M)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    # a (T, M) float array alone would take 40 MB; kept tail events are about 2.5% of draws
+    assert peak < 12e6
 
 
 def test_fz0_by_hand_and_minimised_at_truth():
