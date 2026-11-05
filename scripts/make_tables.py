@@ -14,6 +14,7 @@ import argparse
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
@@ -143,22 +144,87 @@ def option_tables(res: Path) -> list[str]:
         for (port, sig), g in sub.groupby(["portfolio", "sigma0"], sort=False):
             dg = g[g.method == "DG"].iloc[0]
             dgv = g[g.method == "DGV"].iloc[0]
+            dgvx = g[g.method == "DGVX"].iloc[0]
             rows.append([port, f"{sig:.2f}", num(dg.var_full, None, 3),
                          pct(dg.var_rel_err, dg.var_rel_err_se),
                          pct(dgv.var_rel_err, dgv.var_rel_err_se),
+                         pct(dgvx.var_rel_err, dgvx.var_rel_err_se),
                          pct(dg.es_rel_err, dg.es_rel_err_se),
                          pct(dgv.es_rel_err, dgv.es_rel_err_se),
+                         pct(dgvx.es_rel_err, dgvx.es_rel_err_se),
                          pct(dgv.tail_mae_rel, dgv.tail_mae_rel_se)])
         parts.append(
             f"**Table D-{dist}. Simulated data: error of Greek approximations relative to full "
             f"revaluation, one-day P&L, {dist} innovations.** Mean over {nb} batches of "
             "scenarios (Monte Carlo standard error), in percent. 'VaR full' is the "
             "full-revaluation 99% VaR in index points (index = 100). DG = delta-gamma-theta, "
-            "DGV = delta-gamma-vega-theta. Tail MAE = mean absolute P&L error of DGV over the "
+            "DGV = delta-gamma-vega-theta, DGVX = DGV plus vanna and volga (section d'). "
+            "Tail MAE = mean absolute P&L error of DGV over the "
             "scenarios in the full-revaluation 97.5% tail, divided by the full-revaluation "
             "97.5% ES.\n\n"
             + md_table(["Portfolio", "sigma0", "VaR full", "DG VaR err", "DGV VaR err",
-                        "DG ES err", "DGV ES err", "DGV tail MAE"], rows))
+                        "DGVX VaR err", "DG ES err", "DGV ES err", "DGVX ES err",
+                        "DGV tail MAE"], rows))
+    return parts
+
+
+def es_power_tables(res: Path) -> list[str]:
+    files = sorted(res.glob("es_power_T*.csv"), key=lambda f: int(f.stem.split("T")[-1]))
+    if not files:
+        return []
+    d = pd.concat([pd.read_csv(f) for f in files])
+    rows = []
+    for (T, model), g in d.groupby(["T", "model"], sort=False):
+        n = len(g)
+        r2, r1 = (g.z2_p < 0.05).mean(), (g.z1_p < 0.05).mean()
+        rows.append([str(T), model, pct(r2, np.sqrt(r2 * (1 - r2) / n)), num(g.z2.mean(), None, 3),
+                     pct(r1, np.sqrt(r1 * (1 - r1) / n)), num(g.z1.mean(), None, 3),
+                     num(g.n_exceptions.mean(), None, 1), str(n)])
+    return ["**Table E. Simulated data: size and power of the Acerbi-Szekely tests at 97.5% "
+            "with 5000 simulations per test (GARCH(1,1)-t set `typical`).** Rejection rate at "
+            "5% (%) with its binomial standard error; mean of the statistic; mean number of "
+            "97.5% VaR exceedances. `correct` = the true conditional distribution (size); "
+            "`normal` = right variance, normal shape (ES understated); `scale0.9` = true shape "
+            "with 0.9 times the volatility.\n\n"
+            + md_table(["T", "model", "Z2 rejection", "mean Z2", "Z1 rejection", "mean Z1",
+                        "exceedances", "replications"], rows)]
+
+
+def hs_regime_tables(res: Path) -> list[str]:
+    parts = []
+    for s_ in SETS:
+        f = res / f"hs_regime_{s_}.csv"
+        if not f.exists():
+            continue
+        d = pd.read_csv(f)
+        n_rep = d["rep"].nunique()
+        rows = []
+        order = {"level": ["low", "middle", "high"], "change": ["falling", "stable", "rising"]}
+        for m in ("HS250", "HS500", "HS1000"):
+            for kind, classes in order.items():
+                dk = d[(d.method == m) & (d.classification == kind)]
+                tot = dk.n_days.sum()
+                for c in classes:
+                    g = dk[dk["class"] == c]
+                    k = len(g)
+                    if k == 0:
+                        rows.append([m, kind, c, "-", "-", "0", "0.0"])
+                        continue
+                    se_e = g.var_rel_err.std(ddof=1) / np.sqrt(k) if k > 1 else np.nan
+                    se_x = g.exc_rate.std(ddof=1) / np.sqrt(k) if k > 1 else np.nan
+                    rows.append([m, kind, c, pct(g.var_rel_err.mean(), se_e),
+                                 pct(g.exc_rate.mean(), se_x, 2), str(k),
+                                 pct(g.n_days.sum() / tot)])
+        parts.append(
+            f"**Table F-{s_}. Simulated data: historical-simulation 99% VaR error by volatility "
+            f"regime, GARCH(1,1)-t set `{s_}`, {n_rep} replications of 2000 forecast days.** "
+            "Mean over replications of the class mean (Monte Carlo standard error), in percent. "
+            "Level: true sigma below 0.8 / above 1.25 times the unconditional volatility. "
+            "Change: true sigma divided by the root mean true variance over the method's own "
+            "window, below 0.8 (falling) / above 1.25 (rising). Reps = replications with days "
+            "in the class; Days = share of forecast days in the class (%).\n\n"
+            + md_table(["Method", "classification", "class", "VaR error", "Exc. rate", "Reps",
+                        "Days"], rows))
     return parts
 
 
@@ -168,7 +234,8 @@ def main() -> None:
     ap.add_argument("--doc", type=Path, default=REPO / "docs" / "validation.md")
     args = ap.parse_args()
     parts = (garch_tables(args.results) + size_power_tables(args.results)
-             + basel_tables(args.results) + option_tables(args.results))
+             + basel_tables(args.results) + option_tables(args.results)
+             + es_power_tables(args.results) + hs_regime_tables(args.results))
     text = "\n\n".join(parts) + "\n"
     (args.results / "tables.md").write_text(
         "<!-- Generated by scripts/make_tables.py from the CSV files in this directory. -->\n\n"
