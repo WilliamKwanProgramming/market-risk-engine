@@ -372,6 +372,19 @@ def realdata_check_tables(res: Path) -> list[str]:
     return parts
 
 
+def readme_tables(readme: Path, sim: list[str], real: list[str]) -> None:
+    """Paste selected generated tables into the README between named markers."""
+    pick = {"validation": [t for t in sim if t.startswith(("**Table A-typical", "**Table E"))],
+            "realdata": [t for t in real if t.startswith(("**Table R1", "**Table R2",
+                                                          "**Table R3"))]}
+    body = readme.read_text()
+    for name, tables in pick.items():
+        body = re.sub(rf"<!-- {name}:begin -->.*<!-- {name}:end -->",
+                      lambda _, t=tables, n=name: f"<!-- {n}:begin -->\n" + "\n\n".join(t)
+                      + f"\n<!-- {n}:end -->", body, flags=re.S)
+    readme.write_text(body)
+
+
 def replace_block(doc: Path, text: str) -> None:
     body = doc.read_text()
     new = re.sub(r"<!-- tables:begin -->.*<!-- tables:end -->",
@@ -386,6 +399,7 @@ def main() -> None:
     ap.add_argument("--doc", type=Path, default=REPO / "docs" / "validation.md")
     ap.add_argument("--realdata", type=Path, default=REPO / "results" / "realdata")
     ap.add_argument("--findings", type=Path, default=REPO / "docs" / "findings.md")
+    ap.add_argument("--readme", type=Path, default=REPO / "README.md")
     args = ap.parse_args()
     parts = (garch_tables(args.results) + size_power_tables(args.results)
              + basel_tables(args.results) + option_tables(args.results)
@@ -403,6 +417,8 @@ def main() -> None:
             "-->\n\n" + rtext)
         if args.findings.exists():
             replace_block(args.findings, rtext)
+        if args.readme.exists():
+            readme_tables(args.readme, parts, rd)
     print(f"wrote {len(parts)} simulated-data tables and {len(rd)} real-data tables")
 
 
