@@ -26,7 +26,7 @@
 | STRANGLE | FHS | 50 (73) | 0.69 [0.52, 0.90] | **0.004 (0.025)** | 0.358 (1.000) | **0.011 (0.043)** | 100 / 0 / 0 |
 | STRANGLE | MC | 148 (73) | 2.03 [1.73, 2.38] | **9.5e-15 (1.6e-13)** | 0.281 (1.000) | **5.2e-14 (8.8e-13)** | 38 / 61 / 2 |
 
-**Table R2. real data: skfolio S&P 500 panel 1990-2022: 97.5% ES backtest and joint VaR/ES scores.** Z2 = Acerbi-Szekely Z2 (5000 simulations under each method's own predictive distributions; negative = realised tail losses larger than predicted), p-value raw (Holm over 21 cells). Shortfall ratio = mean realised loss over mean predicted ES on the days with loss above the 97.5% VaR (number of such days in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against EWMA-N (negative = lower score than EWMA-N), Newey-West lag 10, p-value raw (Holm over 18 cells). ES days = common days on which every method's 97.5% ES is a positive loss; all columns of this table use only those days (docs/protocol.md, Part 3).
+**Table R2. real data: skfolio S&P 500 panel 1990-2022: 97.5% ES backtest and joint VaR/ES scores.** Z2 = Acerbi-Szekely Z2 (5000 simulations under each method's own predictive distributions; negative = realised tail losses larger than predicted when no single day dominates the statistic, see Table R2b), p-value raw (Holm over 21 cells). Shortfall ratio = mean realised loss over mean predicted ES on the days with loss above the 97.5% VaR (number of such days in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against EWMA-N (negative = lower score than EWMA-N), Newey-West lag 10, p-value raw (Holm over 18 cells). ES days = common days on which every method's 97.5% ES is a positive loss; all columns of this table use only those days (docs/protocol.md, Part 3). STRANGLE is model P&L under an assumed implied-volatility rule; its Z2, FZ0 and DM values rest on very few days (Table R2b).
 
 | Portfolio | Method | ES days | Z2 | Z2 p (Holm) | Shortfall ratio (n) | FZ0 | DM | DM p (Holm) |
 |---|---|---|---|---|---|---|---|---|
@@ -52,7 +52,33 @@
 | STRANGLE | FHS | 7148 | -36.370 | **2.0e-04 (0.004)** | 0.06 (141) | 40.1057 | -1.43 | 0.152 (0.871) |
 | STRANGLE | MC | 7148 | -1.884 | **1.0e-03 (0.004)** | 1.04 (302) | 3.5235 | -1.43 | 0.152 (0.871) |
 
-**Table R3. real data: skfolio S&P 500 panel 1990-2022: pre-specified stress windows.** 99% VaR exceptions / evaluation days in the window (1% of the days is the expectation); shortfall ratio as in R2 over the 97.5% exceedances inside the window (their number in parentheses). Windows: 2008 crisis = 2008-09-02 to 2008-11-20; 2020 Covid crash = 2020-02-19 to 2020-03-23; 2022 rate shock = 2022-01-03 to 2022-10-12. No test is applied inside the windows.
+**Table R2b. real data: skfolio S&P 500 panel 1990-2022: which days make Z2 and the Diebold-Mariano statistic (post hoc sensitivity, not part of the protocol).** Z2 = 1 + the sum of one term per day with a 97.5% exceedance (all negative); the second column gives the day with the most negative term and its share of the sum, the third that day's predicted ES divided by the median predicted ES of the method. Z2 (raw Monte Carlo p-value) is then recomputed on the same simulated paths after leaving out that day and the 5 days with the most negative terms. DM = the statistic of Table R2; the next columns give the day with the largest absolute daily FZ0 difference to EWMA-N and its share of the sum of absolute differences, and the statistic (raw p) without that day and without the 5 days with the largest absolute differences. The p-values are not corrected for the choice of days: the table shows how much a rejection rests on a few days, it is not a test. STRANGLE is model P&L under an assumed implied-volatility rule.
+
+| Portfolio | Method | Z2 | Largest Z2 term: day (share of sum) | Its predicted ES / median ES | Z2 without it (p) | Z2 without the 5 largest (p) | DM | Largest FZ0 difference: day (share) | DM without it (p) | DM without the 5 largest (p) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| EQ20 | HS250 | -0.366 | 1997-10-27 (1%) | 0.9 | -0.350 (2.0e-04) | -0.294 (2.0e-04) | 2.40 | 2018-10-10 (1%) | 2.68 (0.007) | 2.88 (0.004) |
+| EQ20 | HS500 | -0.343 | 2008-09-29 (1%) | 1.1 | -0.327 (2.0e-04) | -0.269 (2.0e-04) | 3.58 | 2020-03-16 (1%) | 3.72 (2.0e-04) | 4.06 (4.9e-05) |
+| EQ20 | HS1000 | -0.318 | 2008-09-29 (1%) | 0.89 | -0.299 (2.0e-04) | -0.234 (1.0e-03) | 3.81 | 2020-03-16 (1%) | 3.97 (7.3e-05) | 4.40 (1.1e-05) |
+| EQ20 | EWMA-N | -0.582 | 2007-02-27 (1%) | 0.45 | -0.563 (2.0e-04) | -0.512 (2.0e-04) | - | - | - | - |
+| EQ20 | EWMA-T | -0.354 | 2007-02-27 (1%) | 0.45 | -0.338 (2.0e-04) | -0.293 (2.0e-04) | -4.60 | 2007-02-27 (2%) | -4.49 (7.1e-06) | -4.31 (1.6e-05) |
+| EQ20 | FHS | -0.078 | 2007-02-27 (1%) | 0.53 | -0.064 (0.135) | -0.023 (0.285) | -3.49 | 2007-02-27 (2%) | -3.34 (8.4e-04) | -3.16 (0.002) |
+| EQ20 | MC | -0.361 | 2007-02-27 (1%) | 0.45 | -0.345 (2.0e-04) | -0.300 (2.0e-04) | -4.24 | 2007-02-27 (2%) | -4.11 (4.0e-05) | -3.84 (1.2e-04) |
+| SPX | HS250 | -0.426 | 1997-10-27 (1%) | 0.81 | -0.410 (2.0e-04) | -0.357 (2.0e-04) | 1.83 | 2018-10-10 (2%) | 2.27 (0.023) | 3.00 (0.003) |
+| SPX | HS500 | -0.400 | 1997-10-27 (1%) | 0.79 | -0.383 (2.0e-04) | -0.327 (2.0e-04) | 2.97 | 2018-10-10 (1%) | 3.26 (0.001) | 3.91 (9.4e-05) |
+| SPX | HS1000 | -0.411 | 1997-10-27 (1%) | 0.66 | -0.392 (2.0e-04) | -0.326 (2.0e-04) | 3.49 | 2020-03-16 (1%) | 3.63 (2.9e-04) | 4.28 (1.8e-05) |
+| SPX | EWMA-N | -0.751 | 2007-02-27 (1%) | 0.48 | -0.732 (2.0e-04) | -0.670 (2.0e-04) | - | - | - | - |
+| SPX | EWMA-T | -0.483 | 2007-02-27 (1%) | 0.48 | -0.466 (2.0e-04) | -0.411 (2.0e-04) | -5.49 | 2007-02-27 (2%) | -5.40 (6.7e-08) | -5.03 (4.9e-07) |
+| SPX | FHS | -0.107 | 2007-02-27 (1%) | 0.48 | -0.091 (0.077) | -0.046 (0.197) | -4.00 | 2018-10-10 (2%) | -3.90 (9.7e-05) | -3.50 (4.6e-04) |
+| SPX | MC | -0.496 | 2007-02-27 (1%) | 0.48 | -0.479 (2.0e-04) | -0.424 (2.0e-04) | -5.10 | 2007-02-27 (2%) | -5.00 (5.9e-07) | -4.61 (4.0e-06) |
+| STRANGLE | HS250 | -0.664 | 2007-02-27 (29%) | 0.0011 | -0.179 (0.009) | -0.024 (0.273) | -1.43 | 2007-02-27 (59%) | -1.12 (0.262) | -6.09 (1.1e-09) |
+| STRANGLE | HS500 | -0.734 | 2007-02-27 (38%) | 0.00076 | -0.077 (0.124) | 0.032 (0.540) | -1.43 | 2007-02-27 (59%) | -1.12 (0.263) | -5.76 (8.6e-09) |
+| STRANGLE | HS1000 | -0.112 | 2007-02-27 (7%) | 0.0057 | -0.029 (0.281) | 0.076 (0.726) | -1.43 | 2007-02-27 (59%) | -1.12 (0.264) | -5.28 (1.3e-07) |
+| STRANGLE | EWMA-N | -89.382 | 2007-02-27 (58%) | 3.3e-05 | -37.112 (2.0e-04) | -4.638 (2.0e-04) | - | - | - | - |
+| STRANGLE | EWMA-T | -78.421 | 2007-02-27 (58%) | 3.3e-05 | -32.459 (2.0e-04) | -3.903 (2.0e-04) | -1.46 | 2007-02-27 (59%) | -1.17 (0.242) | -8.84 (9.9e-19) |
+| STRANGLE | FHS | -36.370 | 2007-02-27 (98%) | 9.3e-06 | 0.424 (1.000) | 0.534 (1.000) | -1.43 | 2014-07-31 (58%) | -1.19 (0.234) | -3.69 (2.3e-04) |
+| STRANGLE | MC | -1.884 | 2007-02-27 (30%) | 0.001 | -1.032 (0.002) | -0.833 (0.004) | -1.43 | 2007-02-27 (59%) | -1.12 (0.263) | -7.02 (2.2e-12) |
+
+**Table R3. real data: skfolio S&P 500 panel 1990-2022: pre-specified stress windows.** 99% VaR exceptions / evaluation days in the window (1% of the days is the expectation); shortfall ratio as in R2 over the 97.5% exceedances inside the window (their number in parentheses). Windows: 2008 crisis = 2008-09-02 to 2008-11-20; 2020 Covid crash = 2020-02-19 to 2020-03-23; 2022 rate shock = 2022-01-03 to 2022-10-12. No test is applied inside the windows. STRANGLE is model P&L under an assumed implied-volatility rule.
 
 | Portfolio | Method | 2008 crisis: exc. / days | 2008 crisis: shortfall ratio (n) | 2020 Covid crash: exc. / days | 2020 Covid crash: shortfall ratio (n) | 2022 rate shock: exc. / days | 2022 rate shock: shortfall ratio (n) |
 |---|---|---|---|---|---|---|---|
@@ -117,6 +143,22 @@
 | IV rule vs VIX/100 correlation | 0.822538 | Pearson, levels; sanity check only, the rule is not recalibrated |
 | IV rule / (VIX/100) mean ratio | 0.986611 | mean of daily ratios |
 | IV rule share of days at the 10% floor | 0.109726 | evaluation period 1994-01-03 to 2022-12-28 |
+| IV rule: max abs error of log IV(t) rebuilt from IV(t-1) and the return of t | 1.49214e-13 | 6498 of 7299 evaluation days with IV(t-1) above the floor |
+| IV rule: correlation of the log IV move with the log return | -0.162507 | 7299 evaluation days |
+| IV rule: correlation of the log IV move with the absolute log return | 0.682755 | 7299 evaluation days |
+| IV rule: share of days with a log IV move of exactly zero | 0.101247 | 7299 evaluation days |
+| stocks: largest share of exactly-zero daily returns in one stock, 1990-01-02 to 1993-12-31 | 0.69664 | RRC; inside the 1000-day history of the first EQ20 forecasts |
+| stocks: largest absolute daily simple return in one stock | 0.666767 | RRC on 1990-04-10 |
+
+**Table R7. real data: skfolio S&P 500 panel 1990-2022: forecasts that are not losses.** Days on which a method's 99% VaR or 97.5% ES is zero or negative, i.e. the position is forecast not to lose in the tail (the short strangle gains from time decay close to expiry). An exception on such a day is a gain smaller than predicted; ES-based measures leave out the days on which any method's ES is not positive (protocol Part 3). Cells not listed are 0.
+
+| Portfolio | Method | Forecast days | VaR99 <= 0 days | ES97.5 <= 0 days |
+|---|---|---|---|---|
+| STRANGLE | HS250 | 7299 | 163 | 117 |
+| STRANGLE | HS500 | 7299 | 148 | 87 |
+| STRANGLE | HS1000 | 7299 | 128 | 37 |
+| STRANGLE | FHS | 7299 | 194 | 118 |
+| STRANGLE | MC | 7299 | 200 | 20 |
 
 **Table R6. real data: skfolio S&P 500 panel 1990-2022: FHS GARCH(1,1)-t fits, one per 20 trading days per factor.** Non-converged = fits whose optimiser did not report success; zero-move share = largest share of exactly-zero moves in a 1000-day window; |z| = largest absolute standardised residual in the window (median and maximum over refits); largest scenario move = maximum of next-day volatility times largest |z| (a log move of the factor).
 

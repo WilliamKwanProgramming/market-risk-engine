@@ -15,14 +15,14 @@ assumption (there are no option prices in these data), and every result is about
 | Feature | Implemented | Tested | Run on simulated data with known truth | Run on real data |
 |---|---|---|---|---|
 | Data loaders (skfolio, arch, user CSV), missing-data policy, returns | yes | yes | n/a | yes (skfolio S&P 500 panel; arch cross-checks) |
-| Black-Scholes-Merton prices and Greeks (incl. vanna, volga), implied volatility | yes | yes | yes ([validation](docs/validation.md), tables D) | yes (STRANGLE, model P&L) |
+| Black-Scholes-Merton prices and Greeks (incl. vanna, volga), implied volatility | yes | yes | yes ([validation](docs/validation.md), tables D) | prices and delta, gamma, vega, theta: yes (STRANGLE, model P&L under an assumed volatility); vanna, volga, implied-volatility inversion: not run |
 | Full revaluation and delta-gamma-vega(-vanna-volga) approximations | yes | yes | yes (tables D) | full revaluation only |
 | HS-250/500/1000, EWMA-N, EWMA-T, FHS (GARCH-t), Monte Carlo | yes | yes | yes (tables A, F) | yes (tables R1-R4) |
 | Kupiec, Christoffersen, Basel traffic light, Wilson intervals, Holm | yes | yes | yes (tables A-C) | yes (R1, R4) |
 | Acerbi-Szekely Z1/Z2, FZ0 score, Diebold-Mariano | yes | yes | yes (tables A, E) | yes (R2) |
 | Historical stress windows (backtest behaviour inside them) | yes | yes | n/a | yes (R3) |
 | Hypothetical stress scenarios (instantaneous shocks) | yes | yes | unit tests only | not run |
-| Euler VaR/ES attribution, option P&L explain | yes | yes | unit tests only | yes (dashboard: EQ20 by stock, STRANGLE explain) |
+| Euler VaR/ES attribution, option P&L explain | yes | yes | unit tests only | yes (result files and dashboard: EQ20 by stock, STRANGLE explain; no table in the findings) |
 | Factor regression attribution | yes | yes | unit tests only | not run |
 | Streamlit dashboard of the precomputed results | yes | smoke test (AppTest) | shows table A | yes |
 | Real option prices, implied-volatility surfaces, intraday data | no | no | no | not run |
@@ -105,7 +105,7 @@ below 0.05 (a finding).
 | STRANGLE | FHS | 50 (73) | 0.69 [0.52, 0.90] | **0.004 (0.025)** | 0.358 (1.000) | **0.011 (0.043)** | 100 / 0 / 0 |
 | STRANGLE | MC | 148 (73) | 2.03 [1.73, 2.38] | **9.5e-15 (1.6e-13)** | 0.281 (1.000) | **5.2e-14 (8.8e-13)** | 38 / 61 / 2 |
 
-**Table R2. real data: skfolio S&P 500 panel 1990-2022: 97.5% ES backtest and joint VaR/ES scores.** Z2 = Acerbi-Szekely Z2 (5000 simulations under each method's own predictive distributions; negative = realised tail losses larger than predicted), p-value raw (Holm over 21 cells). Shortfall ratio = mean realised loss over mean predicted ES on the days with loss above the 97.5% VaR (number of such days in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against EWMA-N (negative = lower score than EWMA-N), Newey-West lag 10, p-value raw (Holm over 18 cells). ES days = common days on which every method's 97.5% ES is a positive loss; all columns of this table use only those days (docs/protocol.md, Part 3).
+**Table R2. real data: skfolio S&P 500 panel 1990-2022: 97.5% ES backtest and joint VaR/ES scores.** Z2 = Acerbi-Szekely Z2 (5000 simulations under each method's own predictive distributions; negative = realised tail losses larger than predicted when no single day dominates the statistic, see Table R2b), p-value raw (Holm over 21 cells). Shortfall ratio = mean realised loss over mean predicted ES on the days with loss above the 97.5% VaR (number of such days in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale differs by portfolio). DM = Diebold-Mariano statistic of the FZ0 difference against EWMA-N (negative = lower score than EWMA-N), Newey-West lag 10, p-value raw (Holm over 18 cells). ES days = common days on which every method's 97.5% ES is a positive loss; all columns of this table use only those days (docs/protocol.md, Part 3). STRANGLE is model P&L under an assumed implied-volatility rule; its Z2, FZ0 and DM values rest on very few days (Table R2b).
 
 | Portfolio | Method | ES days | Z2 | Z2 p (Holm) | Shortfall ratio (n) | FZ0 | DM | DM p (Holm) |
 |---|---|---|---|---|---|---|---|---|
@@ -131,7 +131,33 @@ below 0.05 (a finding).
 | STRANGLE | FHS | 7148 | -36.370 | **2.0e-04 (0.004)** | 0.06 (141) | 40.1057 | -1.43 | 0.152 (0.871) |
 | STRANGLE | MC | 7148 | -1.884 | **1.0e-03 (0.004)** | 1.04 (302) | 3.5235 | -1.43 | 0.152 (0.871) |
 
-**Table R3. real data: skfolio S&P 500 panel 1990-2022: pre-specified stress windows.** 99% VaR exceptions / evaluation days in the window (1% of the days is the expectation); shortfall ratio as in R2 over the 97.5% exceedances inside the window (their number in parentheses). Windows: 2008 crisis = 2008-09-02 to 2008-11-20; 2020 Covid crash = 2020-02-19 to 2020-03-23; 2022 rate shock = 2022-01-03 to 2022-10-12. No test is applied inside the windows.
+**Table R2b. real data: skfolio S&P 500 panel 1990-2022: which days make Z2 and the Diebold-Mariano statistic (post hoc sensitivity, not part of the protocol).** Z2 = 1 + the sum of one term per day with a 97.5% exceedance (all negative); the second column gives the day with the most negative term and its share of the sum, the third that day's predicted ES divided by the median predicted ES of the method. Z2 (raw Monte Carlo p-value) is then recomputed on the same simulated paths after leaving out that day and the 5 days with the most negative terms. DM = the statistic of Table R2; the next columns give the day with the largest absolute daily FZ0 difference to EWMA-N and its share of the sum of absolute differences, and the statistic (raw p) without that day and without the 5 days with the largest absolute differences. The p-values are not corrected for the choice of days: the table shows how much a rejection rests on a few days, it is not a test. STRANGLE is model P&L under an assumed implied-volatility rule.
+
+| Portfolio | Method | Z2 | Largest Z2 term: day (share of sum) | Its predicted ES / median ES | Z2 without it (p) | Z2 without the 5 largest (p) | DM | Largest FZ0 difference: day (share) | DM without it (p) | DM without the 5 largest (p) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| EQ20 | HS250 | -0.366 | 1997-10-27 (1%) | 0.9 | -0.350 (2.0e-04) | -0.294 (2.0e-04) | 2.40 | 2018-10-10 (1%) | 2.68 (0.007) | 2.88 (0.004) |
+| EQ20 | HS500 | -0.343 | 2008-09-29 (1%) | 1.1 | -0.327 (2.0e-04) | -0.269 (2.0e-04) | 3.58 | 2020-03-16 (1%) | 3.72 (2.0e-04) | 4.06 (4.9e-05) |
+| EQ20 | HS1000 | -0.318 | 2008-09-29 (1%) | 0.89 | -0.299 (2.0e-04) | -0.234 (1.0e-03) | 3.81 | 2020-03-16 (1%) | 3.97 (7.3e-05) | 4.40 (1.1e-05) |
+| EQ20 | EWMA-N | -0.582 | 2007-02-27 (1%) | 0.45 | -0.563 (2.0e-04) | -0.512 (2.0e-04) | - | - | - | - |
+| EQ20 | EWMA-T | -0.354 | 2007-02-27 (1%) | 0.45 | -0.338 (2.0e-04) | -0.293 (2.0e-04) | -4.60 | 2007-02-27 (2%) | -4.49 (7.1e-06) | -4.31 (1.6e-05) |
+| EQ20 | FHS | -0.078 | 2007-02-27 (1%) | 0.53 | -0.064 (0.135) | -0.023 (0.285) | -3.49 | 2007-02-27 (2%) | -3.34 (8.4e-04) | -3.16 (0.002) |
+| EQ20 | MC | -0.361 | 2007-02-27 (1%) | 0.45 | -0.345 (2.0e-04) | -0.300 (2.0e-04) | -4.24 | 2007-02-27 (2%) | -4.11 (4.0e-05) | -3.84 (1.2e-04) |
+| SPX | HS250 | -0.426 | 1997-10-27 (1%) | 0.81 | -0.410 (2.0e-04) | -0.357 (2.0e-04) | 1.83 | 2018-10-10 (2%) | 2.27 (0.023) | 3.00 (0.003) |
+| SPX | HS500 | -0.400 | 1997-10-27 (1%) | 0.79 | -0.383 (2.0e-04) | -0.327 (2.0e-04) | 2.97 | 2018-10-10 (1%) | 3.26 (0.001) | 3.91 (9.4e-05) |
+| SPX | HS1000 | -0.411 | 1997-10-27 (1%) | 0.66 | -0.392 (2.0e-04) | -0.326 (2.0e-04) | 3.49 | 2020-03-16 (1%) | 3.63 (2.9e-04) | 4.28 (1.8e-05) |
+| SPX | EWMA-N | -0.751 | 2007-02-27 (1%) | 0.48 | -0.732 (2.0e-04) | -0.670 (2.0e-04) | - | - | - | - |
+| SPX | EWMA-T | -0.483 | 2007-02-27 (1%) | 0.48 | -0.466 (2.0e-04) | -0.411 (2.0e-04) | -5.49 | 2007-02-27 (2%) | -5.40 (6.7e-08) | -5.03 (4.9e-07) |
+| SPX | FHS | -0.107 | 2007-02-27 (1%) | 0.48 | -0.091 (0.077) | -0.046 (0.197) | -4.00 | 2018-10-10 (2%) | -3.90 (9.7e-05) | -3.50 (4.6e-04) |
+| SPX | MC | -0.496 | 2007-02-27 (1%) | 0.48 | -0.479 (2.0e-04) | -0.424 (2.0e-04) | -5.10 | 2007-02-27 (2%) | -5.00 (5.9e-07) | -4.61 (4.0e-06) |
+| STRANGLE | HS250 | -0.664 | 2007-02-27 (29%) | 0.0011 | -0.179 (0.009) | -0.024 (0.273) | -1.43 | 2007-02-27 (59%) | -1.12 (0.262) | -6.09 (1.1e-09) |
+| STRANGLE | HS500 | -0.734 | 2007-02-27 (38%) | 0.00076 | -0.077 (0.124) | 0.032 (0.540) | -1.43 | 2007-02-27 (59%) | -1.12 (0.263) | -5.76 (8.6e-09) |
+| STRANGLE | HS1000 | -0.112 | 2007-02-27 (7%) | 0.0057 | -0.029 (0.281) | 0.076 (0.726) | -1.43 | 2007-02-27 (59%) | -1.12 (0.264) | -5.28 (1.3e-07) |
+| STRANGLE | EWMA-N | -89.382 | 2007-02-27 (58%) | 3.3e-05 | -37.112 (2.0e-04) | -4.638 (2.0e-04) | - | - | - | - |
+| STRANGLE | EWMA-T | -78.421 | 2007-02-27 (58%) | 3.3e-05 | -32.459 (2.0e-04) | -3.903 (2.0e-04) | -1.46 | 2007-02-27 (59%) | -1.17 (0.242) | -8.84 (9.9e-19) |
+| STRANGLE | FHS | -36.370 | 2007-02-27 (98%) | 9.3e-06 | 0.424 (1.000) | 0.534 (1.000) | -1.43 | 2014-07-31 (58%) | -1.19 (0.234) | -3.69 (2.3e-04) |
+| STRANGLE | MC | -1.884 | 2007-02-27 (30%) | 0.001 | -1.032 (0.002) | -0.833 (0.004) | -1.43 | 2007-02-27 (59%) | -1.12 (0.263) | -7.02 (2.2e-12) |
+
+**Table R3. real data: skfolio S&P 500 panel 1990-2022: pre-specified stress windows.** 99% VaR exceptions / evaluation days in the window (1% of the days is the expectation); shortfall ratio as in R2 over the 97.5% exceedances inside the window (their number in parentheses). Windows: 2008 crisis = 2008-09-02 to 2008-11-20; 2020 Covid crash = 2020-02-19 to 2020-03-23; 2022 rate shock = 2022-01-03 to 2022-10-12. No test is applied inside the windows. STRANGLE is model P&L under an assumed implied-volatility rule.
 
 | Portfolio | Method | 2008 crisis: exc. / days | 2008 crisis: shortfall ratio (n) | 2020 Covid crash: exc. / days | 2020 Covid crash: shortfall ratio (n) | 2022 rate shock: exc. / days | 2022 rate shock: shortfall ratio (n) |
 |---|---|---|---|---|---|---|---|
@@ -167,7 +193,20 @@ Reading:
   (5.12% and 4.37%), FHS has too few exceptions (0.69%) and HS1000 is the only method not
   rejected by any VaR test after Holm (its raw independence p-value is 0.007).
 - **ES (R2)**: Z2 rejects 18 of 21 cells; not rejected are FHS on EQ20 and SPX and HS1000 on
-  STRANGLE. On EQ20 and SPX the FZ0 score ranks EWMA-T, FHS and MC significantly ahead of EWMA-N.
+  STRANGLE. On EQ20 and SPX the FZ0 score ranks EWMA-T, FHS and MC significantly ahead of EWMA-N,
+  and no single day contributes more than 1.5% of any method's Z2 (R2b).
+- **ES on STRANGLE rests on very few days (R2b, post hoc)**: for every method the largest Z2
+  term is 2007-02-27, when the held strangle had 3 trading days to expiry, the index fell 3.5%
+  and each method's predicted ES was below 0.6% of its median. That day is 98% of FHS's Z2 of
+  -36.4 (without it Z2 = 0.42, p = 1.000), 58% of EWMA-N's and EWMA-T's, 29-38% of HS250's,
+  HS500's and MC's, and 7% of HS1000's. Without the five largest days the rejections of HS250
+  (raw p = 0.273) and HS500 (raw p = 0.540) disappear, those of EWMA-N, EWMA-T and MC remain
+  (raw p <= 0.004). The values -36 to -89 describe one or two near-expiry days, not the average
+  ES forecast, and "negative = realised losses larger than predicted" holds only when no day
+  dominates (FHS has Z2 = -36.4 and a shortfall ratio of 0.06). The STRANGLE DM statistics
+  (-1.43 to -1.46) are the same artefact: one day (2007-02-27; 2014-07-31 for FHS) is 58-59% of
+  the sum of absolute FZ0 differences to EWMA-N, and without the five largest days every method
+  scores significantly lower than EWMA-N (statistics -3.7 to -8.8).
 - **Stress (R3)**: in 2008-09-02 to 2008-11-20 HS1000 had 17 exceptions in 58 days on EQ20 and
   SPX, FHS 2.
 - Not shown: that a non-rejected method is correct; anything about other periods, markets or
@@ -191,7 +230,7 @@ return from the installed `skfolio` package). Forecasts against realised losses 
 
 ```bash
 python3 -m venv --system-site-packages venv
-venv/bin/pip install -e '.[data,test,dashboard]' statsmodels
+venv/bin/pip install -e '.[data,test,dashboard]'
 venv/bin/python -m pytest -q                      # includes the dashboard smoke test
 venv/bin/ruff check src tests scripts app
 PYTHON=venv/bin/python scripts/reproduce.sh       # all results and tables (writes results/MANIFEST.txt)
@@ -200,13 +239,22 @@ venv/bin/python tests/mutation_check.py --out results/mutation_check.txt
 python3 scripts/check_readme_numbers.py
 ```
 
-The data are read at run time from the installed `skfolio` and `arch` wheels; no prices and no index
-levels are stored in the repository. The result files hold the forecasts and the test results, and the
-daily P&L of the two derived test portfolios (EQ20, the mean of 20 stock returns, and STRANGLE, model
-P&L), which the dashboard plots; the S&P 500 index's own daily return is not stored (the dashboard
-reads it from `skfolio`). `results/MANIFEST.txt` records the commit, the commands, seeds, wall and CPU
-time and the machine of the last full run. The mutation check applies 38 deliberate bugs one at a
-time; its result is in `results/mutation_check.txt`.
+The data are read at run time from the installed `skfolio` and `arch` wheels. No file in the
+repository has a price, index-level or index-return column (`tests/test_results_hygiene.py`). The
+result files hold the forecasts and the test results, and the daily P&L of the two derived test
+portfolios (EQ20, the mean of 20 stock returns, and STRANGLE, model P&L), which the dashboard
+plots; the S&P 500 index's own daily return is not stored as a column (the dashboard reads it from
+`skfolio`). Derived series do determine the data they come from, though: the EWMA forecasts and
+the implied-volatility column are functions of the index returns, and the month-start index levels
+can be recovered from the STRANGLE explain components with the model's own formulas
+([docs/protocol.md](docs/protocol.md), Part 6). The first two real-data result commits (4d6f927,
+b02f333) also stored the index level and the SPX daily return as columns; they were removed from
+the files in 0a291bc but remain in the git history. The data are pinned: every real-data manifest
+records the skfolio and arch versions and SHA-256 fingerprints of the frames as loaded, and a run
+stops if the skfolio data differ from those of the stored results (`MRE_ALLOW_DATA_CHANGE=1`
+overrides). `results/MANIFEST.txt` records the commit, the commands, seeds, wall and CPU time and
+the machine of the last full run. The mutation check applies 38 deliberate bugs one at a time; its
+result is in `results/mutation_check.txt`.
 
 ## Method
 
@@ -231,15 +279,37 @@ time; its result is in `results/mutation_check.txt`.
 - STRANGLE is model P&L: its implied volatility is a rule (1.2 x EWMA volatility, floor 10%) with
   correlation 0.82 to VIX/100 over 2014-2019 (Table R5 in [docs/findings.md](docs/findings.md)),
   not market data; no smile, flat 3% rate, 2% dividend yield.
+- Under that rule the daily log change of the implied volatility is an exact function of the
+  previous day's volatility and the same day's index return (maximum error 1.5e-13 on 6,498 of
+  7,299 days; correlation with the return -0.16, with its absolute value 0.68; Table R5), so
+  STRANGLE has one source of randomness, not two. EWMA-N, EWMA-T, MC and FHS treat the two factors
+  as separate random variables and misspecify this coupling by construction; only the historical
+  methods keep the joint pairs. The STRANGLE rankings, including the delta-normal failure, may
+  follow from this as well as from the short gamma and vega. A one-factor variant (simulate the
+  return, apply the rule) was not run; it would be post hoc. Applying a historical log
+  volatility move at the 10% floor also gives volatilities the rule can never produce.
+- The STRANGLE 99% VaR is zero or negative (a forecast gain) on 128-200 days for five of the seven
+  methods (Table R7), where an exception is a gain smaller than predicted; EWMA-N and EWMA-T use
+  a zero mean and so ignore the theta carry. The STRANGLE ES statistics rest on one or two days (R2b).
 - FHS on the implied-volatility factor is degenerate: the factor has long stretches of zero moves
   at the floor, 31 of 365 GARCH fits did not converge and standardised residuals reach 1.13e+05
   (Table R6).
 - All 20 stocks have prices for the whole 1990-2022 period, so firms that failed or were
-  delisted are absent (survivorship); the selection is the package authors'. Equal weights in 20
-  stocks are not a realistic book.
+  delisted are absent (survivorship); the selection is the package authors'. The direction of the
+  bias was not tested; survivors have fewer large losses, which would lower exception counts.
+  Equal weights in 20 stocks are not a realistic book. One stock, RRC, has 69.7% exactly-zero daily
+  returns in 1990-1993 (stale prices) and a -66.7% day on 1990-04-10, inside the 1,000-day
+  histories of the first EQ20 forecasts (Table R5).
 - One parameter set per method; one-day horizon; 99% / 97.5% only; one sample (1994-2022).
-- The power of the backtests at 7,300 days was not measured; Z2 power at 1,000 days is 20.5-70%
-  against the misspecifications in Table E.
+- Holm controls the family-wise error rate within each of the 8 test families (1,929 tests), not
+  across them; the stressed windows (R3) and the post hoc tables R2b and R7 carry no test.
+- Power: Kupiec's test at 8,000 days (close to the 7,300 used) rejects a true exception rate of
+  1.25% in 55.7% of samples and a true 1.5% in 98.4% (Table B1 in
+  [docs/validation.md](docs/validation.md)), at the 5% level and before any Holm adjustment, which
+  lowers it. A method whose true rate is 1.25%, which FHS's 1.26% and 1.23% are consistent with,
+  therefore passes the unadjusted test in 44% of samples: the non-rejections in Table R1 are weak
+  evidence of correct coverage. The power of Z2 at 7,300 days was not measured (20.5-70% at 1,000
+  days against the misspecifications in Table E).
 - `scripts/reproduce.sh` regenerated every result in 1357 s wall time and 1008 s of CPU time on a
   2-core machine shared with other jobs (load about 3); the wall time was above the 20-minute
   target there, the single-core CPU time below it (`results/MANIFEST.txt`).
@@ -254,6 +324,8 @@ time; its result is in `results/mutation_check.txt`.
 - Basel Committee on Banking Supervision (1996). Supervisory framework for the use of
   "backtesting" in conjunction with the internal models approach to market risk capital
   requirements.
+- Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. *Journal of
+  Econometrics* 31(3).
 - Bollerslev, T. (1987). A conditionally heteroskedastic time series model for speculative prices
   and rates of return. *Review of Economics and Statistics* 69(3).
 - Christoffersen, P. (1998). Evaluating interval forecasts. *International Economic Review* 39(4).

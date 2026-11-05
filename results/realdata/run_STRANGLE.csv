@@ -1,8 +1,8 @@
-method,forecast_days,failed_days,failed,garch_fits,garch_nonconverged,seconds
-HS250,7299,0,[],0,0,7.3
-HS500,7299,0,[],0,0,8.3
-HS1000,7299,0,[],0,0,8.0
-EWMA-N,7299,0,[],0,0,7.3
-EWMA-T,7299,0,[],0,0,8.4
-FHS,7299,0,[],730,31,60.6
-MC,7299,0,[],0,0,44.2
+method,forecast_days,failed_days,failed,garch_fits,garch_nonconverged,var99_nonpositive_days,es975_nonpositive_days,seconds
+HS250,7299,0,[],0,0,163,117,6.7
+HS500,7299,0,[],0,0,148,87,7.2
+HS1000,7299,0,[],0,0,128,37,8.0
+EWMA-N,7299,0,[],0,0,0,0,7.8
+EWMA-T,7299,0,[],0,0,0,0,9.0
+FHS,7299,0,[],730,31,194,118,59.9
+MC,7299,0,[],0,0,200,20,47.2

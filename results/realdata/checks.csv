@@ -8,3 +8,9 @@ IV rule vs VIX/100 common dates,1259,2014-01-03 to 2019-01-03
 IV rule vs VIX/100 correlation,0.82253848,"Pearson, levels; sanity check only, the rule is not recalibrated"
 IV rule / (VIX/100) mean ratio,0.98661083,mean of daily ratios
 IV rule share of days at the 10% floor,0.10972603,evaluation period 1994-01-03 to 2022-12-28
+IV rule: max abs error of log IV(t) rebuilt from IV(t-1) and the return of t,1.4921397e-13,6498 of 7299 evaluation days with IV(t-1) above the floor
+IV rule: correlation of the log IV move with the log return,-0.16250671,7299 evaluation days
+IV rule: correlation of the log IV move with the absolute log return,0.68275538,7299 evaluation days
+IV rule: share of days with a log IV move of exactly zero,0.10124675,7299 evaluation days
+"stocks: largest share of exactly-zero daily returns in one stock, 1990-01-02 to 1993-12-31",0.69664032,RRC; inside the 1000-day history of the first EQ20 forecasts
+stocks: largest absolute daily simple return in one stock,0.66676701,RRC on 1990-04-10
