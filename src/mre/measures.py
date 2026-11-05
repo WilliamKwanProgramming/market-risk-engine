@@ -29,6 +29,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy import stats
+from scipy.special import ndtri
 
 __all__ = [
     "empirical_var_es",
@@ -88,7 +89,8 @@ def std_t_es(level: float, nu: float) -> float:
 def normal_es(level: float) -> float:
     """ES (positive number) of a standard normal variable: ``phi(z_p) / p``, ``p = 1 - level``."""
     p = 1.0 - level
-    return float(stats.norm.pdf(stats.norm.ppf(p)) / p)
+    z = float(ndtri(p))
+    return float(np.exp(-0.5 * z * z) / np.sqrt(2.0 * np.pi) / p)
 
 
 class Predictive(ABC):
@@ -141,7 +143,7 @@ class LocationScalePnL(Predictive):
 
     def _z_quantile(self, p: float) -> float:
         if self.dist == "normal":
-            return float(stats.norm.ppf(p))
+            return float(ndtri(p))
         return float(std_t_quantile(p, self.nu))
 
     def var(self, level: float) -> float:
