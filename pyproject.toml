@@ -16,7 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 data = ["skfolio>=0.7", "arch>=7.0"]
-test = ["pytest>=8.0", "arch>=7.0", "ruff>=0.5"]
+test = ["pytest>=8.0", "arch>=7.0", "ruff>=0.5", "statsmodels>=0.14"]
 dashboard = ["streamlit>=1.30", "altair>=5.0", "skfolio>=0.7"]
 
 [tool.setuptools.packages.find]
