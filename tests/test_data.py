@@ -8,6 +8,7 @@ from mre.data import (
     clean_prices,
     ewma_vol_rule,
     factor_levels,
+    frame_sha256,
     load_arch,
     load_csv,
     to_returns,
@@ -129,3 +130,19 @@ def test_ewma_vol_rule_truncation_with_a_short_window():
     for t in (2, 4, 5, 6, 20, 39):
         s2 = float(ewma_covariance(r.iloc[:t + 1].to_numpy(), 0.8, 5)[0, 0])
         assert v.iloc[t] == pytest.approx(np.sqrt(252 * s2), rel=1e-10)
+
+
+def test_frame_sha256_pins_content_not_representation():
+    idx = pd.date_range("2020-01-01", periods=4, freq="D")
+    df = pd.DataFrame({"A": [1.0, 2.0, 3.0, 4.5], "B": [0.5, 0.25, 0.125, 1.0]}, index=idx)
+    h = frame_sha256(df)
+    assert len(h) == 64 and h == frame_sha256(df.copy())
+    # the same dates at another datetime resolution and the same numbers as float32-exact values
+    assert h == frame_sha256(df.set_axis(idx.astype("datetime64[us]"), axis=0))
+    assert frame_sha256(df["A"]) == frame_sha256(df[["A"]])  # a Series hashes as one column
+    changed = df.copy()
+    changed.iloc[2, 1] += 1e-12
+    assert frame_sha256(changed) != h  # one value in the last digit
+    assert frame_sha256(df.rename(columns={"A": "C"})) != h
+    assert frame_sha256(df.set_axis(idx + pd.Timedelta(days=1), axis=0)) != h
+    assert frame_sha256(df.iloc[:-1]) != h
