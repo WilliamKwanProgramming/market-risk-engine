@@ -1,10 +1,10 @@
 experiment: es_power_T250
 command: python -m mre.experiments.es_power --T 250 --reps 200 --out results/validation
 seeds: returns default_rng([20261109, 0, rep]); Monte Carlo p-value seed = rep; rep = 0..199
-git commit: 0bbe614f99ee3b74715ab05f9a04da0feea8e447 (working tree clean)
+git commit: a3c33a4473f6e89a6f2ef269d74e9ad8a829f311 (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 3.91
-started: 2026-11-05T07:39:24Z
-runtime: 71.0 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 3.15
+started: 2026-11-05T08:46:13Z
+runtime: 59.8 s
 outputs: es_power_T250.csv
 notes: GARCH(1,1)-t set typical; 5000 simulations per test; level 0.975
