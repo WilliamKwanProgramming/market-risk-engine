@@ -370,7 +370,7 @@ def strangle_explain(inp: PortfolioInput, fc: pd.DataFrame) -> pd.DataFrame:
         s1 = MarketState({INDEX: float(ex["spot"].iloc[r])}, {INDEX: float(ex["iv"].iloc[r])},
                          RATE, {INDEX: DIV_YIELD})
         e = option_pnl_explain(f.portfolio, f.state, s1, H).sum()
-        rows.append({"date": inp.moves.index[r].date(), "spot": s1.spot[INDEX],
+        rows.append({"date": inp.moves.index[r].date(),
                      "iv": s1.vol[INDEX], "days_left_prev_close": int(ex["days_left"].iloc[r - 1])
                      if r > 0 else np.nan, **{k: e[k] for k in
                                               ("full", "delta", "gamma", "vega", "theta",
@@ -442,7 +442,13 @@ def stage1(name: str, out: Path) -> list[str]:
     inp, stocks = build_input(name)
     fits: dict = {}
     fc, runs, es = run_forecasts(inp, make_methods(), fits_out=fits)
-    extra = fc.join(inp.extra[["spot", "iv"]]) if inp.extra is not None else fc
+    # Stored: the forecasts, the assumed implied volatility (an assumption, not data) and the
+    # portfolio P&L, except for SPX, whose P&L is the index's own daily return, i.e. the input
+    # data itself: it is not stored (the dashboard reads it from the installed skfolio package).
+    # No price or index level is stored for any portfolio.
+    extra = fc.join(inp.extra[["iv"]]) if inp.extra is not None else fc
+    if name == "SPX":
+        extra = extra.drop(columns=["realized"])
     extra.to_csv(out / f"forecasts_{name}.csv", float_format="%.8g")
     runs.to_csv(out / f"run_{name}.csv", index=False)
     es.to_csv(out / f"es_test_{name}.csv", index=False, float_format="%.6g")

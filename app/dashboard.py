@@ -44,8 +44,26 @@ def read_csv(path: str, **kw) -> pd.DataFrame:
     return pd.read_csv(path, **kw)
 
 
+@st.cache_data
+def index_returns() -> pd.DataFrame:
+    """Daily simple returns of the S&P 500 index, read from the installed skfolio package
+    (the repository stores no price or index data)."""
+    from mre import data
+
+    r = data.to_returns(data.load_skfolio_index(), "simple").iloc[:, 0]
+    return pd.DataFrame({"date": pd.to_datetime(r.index), "realized": r.to_numpy()})
+
+
 def forecasts(portfolio: str) -> pd.DataFrame:
-    return read_csv(str(RD / f"forecasts_{portfolio}.csv"), parse_dates=["date"])
+    fc = read_csv(str(RD / f"forecasts_{portfolio}.csv"), parse_dates=["date"])
+    if "realized" not in fc.columns:  # SPX: its P&L is the index return, which is data
+        try:
+            fc = fc.merge(index_returns(), on="date", how="left", validate="one_to_one")
+        except ImportError:
+            st.error("The SPX page needs the index returns from the `skfolio` package "
+                     "(not stored in this repository): `pip install -e '.[dashboard]'`.")
+            st.stop()
+    return fc
 
 
 def method_frame(fc: pd.DataFrame, method: str) -> pd.DataFrame:
@@ -118,6 +136,10 @@ def about(summary: pd.DataFrame) -> None:
             "the S&P 500 index (price index), 1990-01-02 to 2022-12-28, from the public "
             "Python package `skfolio` (`skfolio.datasets`); `arch` (`arch.data`) for two "
             "cross-checks. Nothing else; no intraday data.\n"
+            "- **What is stored**: forecasts and test results, no prices and no index levels. "
+            "The P&L of EQ20 (mean of 20 daily returns) and the model P&L of STRANGLE are "
+            "results and are stored with the forecasts; the S&P 500 index's own daily returns "
+            "(the SPX P&L) are read from `skfolio` when the SPX page is shown.\n"
             "- **STRANGLE is model P&L**: option values come from Black-Scholes-Merton with an "
             "assumed implied volatility (1.2 x EWMA volatility of the index, floor 10%), "
             "dividend yield 2% and rate 3%. There are no option prices in these data.\n"
