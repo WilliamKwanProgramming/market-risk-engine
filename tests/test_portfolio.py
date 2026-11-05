@@ -78,6 +78,30 @@ def test_greek_approximation_converges_to_full_revaluation():
     assert errs[1] < errs[0] / 3.5 and errs[2] < errs[1] / 3.5
 
 
+def test_second_order_vol_terms_make_the_error_third_order():
+    rng = np.random.default_rng(1)
+    base = rng.standard_normal((50, 4))
+    errs = []
+    for scale in (0.02, 0.01, 0.005):
+        x = base * scale
+        full = PORT.pnl_full(STATE, x, horizon=0.0).sum(axis=1)
+        approx = PORT.pnl_greeks(STATE, x, horizon=0.0, theta=False,
+                                 second_order_vol=True).sum(axis=1)
+        errs.append(np.max(np.abs(full - approx)))
+    # a complete second-order expansion leaves a third-order remainder: a factor ~8 per halving
+    assert errs[1] < errs[0] / 7.0 and errs[2] < errs[1] / 7.0
+
+
+def test_greek_approximation_vanna_volga_terms():
+    x = np.array([[0.01, 0.0, 0.05, 0.0]])
+    g = bsm_greeks(100, 95, 0.25, 0.03, 0.01, 0.25, False)
+    dS = 100 * np.expm1(0.01)
+    dv = 0.25 * np.expm1(0.05)
+    extra = (PORT.pnl_greeks(STATE, x, second_order_vol=True)[0, 1]
+             - PORT.pnl_greeks(STATE, x)[0, 1])
+    assert extra == pytest.approx(20 * (g.vanna * dS * dv + 0.5 * g.volga * dv**2))
+
+
 def test_greek_approximation_terms():
     x = np.array([[0.01, 0.0, 0.05, 0.0]])
     g = bsm_greeks(100, 95, 0.25, 0.03, 0.01, 0.25, False)

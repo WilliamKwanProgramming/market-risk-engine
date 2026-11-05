@@ -95,6 +95,26 @@ def test_greeks_match_central_differences(is_call):
 
 
 @pytest.mark.parametrize("is_call", [True, False])
+def test_vanna_volga_match_central_differences(is_call):
+    g = _grid(200, seed=5)
+    G = bsm_greeks(**g, is_call=is_call)
+
+    def greeks(**kw):
+        a = dict(g)
+        a.update(kw)
+        return bsm_greeks(**a, is_call=is_call)
+
+    h = 1e-5
+    up, dn = greeks(sigma=g["sigma"] + h), greeks(sigma=g["sigma"] - h)
+    np.testing.assert_allclose(G.vanna, (up.delta - dn.delta) / (2 * h), rtol=1e-5, atol=1e-7)
+    np.testing.assert_allclose(G.volga, (up.vega - dn.vega) / (2 * h), rtol=1e-5, atol=1e-6)
+    hS = 1e-4 * g["S"]
+    np.testing.assert_allclose(
+        G.vanna, (greeks(S=g["S"] + hS).vega - greeks(S=g["S"] - hS).vega) / (2 * hS),
+        rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("is_call", [True, False])
 def test_greeks_satisfy_bsm_pde(is_call):
     """theta + (r - q) S delta + 0.5 sigma^2 S^2 gamma - r V = 0 (theta = dV/dt)."""
     g = _grid(300, seed=3)
