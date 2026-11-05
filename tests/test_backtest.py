@@ -16,9 +16,11 @@ from mre.backtest import (
     diebold_mariano,
     exceptions,
     fz0_loss,
+    holm,
     kupiec_pof,
     newey_west_lag,
     traffic_light,
+    wilson_interval,
     zone_occupancy,
 )
 from mre.measures import EmpiricalPnL, LocationScalePnL, Predictive
@@ -300,3 +302,27 @@ def test_diebold_mariano_against_statsmodels_hac():
 def test_newey_west_lag_rule():
     assert [newey_west_lag(n) for n in (100, 250, 1000, 8000)] == [4, 4, 6, 10]
     assert np.isnan(diebold_mariano(np.ones(50), np.ones(50)).statistic)
+
+
+def test_wilson_interval_by_hand_and_against_statsmodels():
+    lo, hi = wilson_interval(10, 1000)
+    z = stats.norm.ppf(0.975)
+    ph = 0.01
+    c, h = ph + z * z / 2000, z * np.sqrt(ph * 0.99 / 1000 + z * z / 4e6)
+    assert lo == pytest.approx((c - h) / (1 + z * z / 1000))
+    assert hi == pytest.approx((c + h) / (1 + z * z / 1000))
+    smp = pytest.importorskip("statsmodels.stats.proportion")
+    for x, n in ((0, 250), (3, 250), (87, 7300), (250, 250)):
+        ref = smp.proportion_confint(x, n, alpha=0.05, method="wilson")
+        np.testing.assert_allclose(wilson_interval(x, n), ref, rtol=1e-10, atol=1e-14)
+
+
+def test_holm_by_hand_and_against_statsmodels():
+    p = np.array([0.01, 0.04, 0.03, 0.005, np.nan])
+    # sorted finite: 0.005, 0.01, 0.03, 0.04 with m = 4 -> 0.02, 0.03, 0.06, 0.06 (monotone)
+    np.testing.assert_allclose(holm(p), [0.03, 0.06, 0.06, 0.02, np.nan])
+    mt = pytest.importorskip("statsmodels.stats.multitest")
+    rng = np.random.default_rng(3)
+    q = rng.uniform(0, 0.2, 40) ** 2
+    np.testing.assert_allclose(holm(q), mt.multipletests(q, method="holm")[1], rtol=1e-12)
+    assert np.isnan(holm([np.nan])).all()

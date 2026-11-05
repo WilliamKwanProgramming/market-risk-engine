@@ -34,9 +34,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import signal
 
 __all__ = ["load_skfolio_prices", "load_skfolio_index", "load_skfolio_factors", "load_arch",
-           "load_csv", "clean_prices", "to_returns", "realized_vol_proxy", "factor_levels"]
+           "load_csv", "clean_prices", "to_returns", "ewma_vol_rule", "factor_levels"]
 
 _ARCH_SETS = ("sp500", "nasdaq", "vix", "wti", "crude", "frenchdata")
 
@@ -135,16 +136,31 @@ def to_returns(prices: pd.DataFrame | pd.Series, kind: str = "log") -> pd.DataFr
     return out.iloc[1:]
 
 
-def realized_vol_proxy(log_returns: pd.DataFrame | pd.Series, window: int = 21,
-                       multiple: float = 1.0, periods_per_year: int = 252) -> pd.DataFrame:
-    """Implied-volatility proxy: ``multiple * sqrt(periods_per_year) * sd(last window returns)``.
+def ewma_vol_rule(log_returns: pd.Series, multiple: float = 1.2, floor: float = 0.10,
+                  lam: float = 0.94, window: int = 500,
+                  periods_per_year: int = 252) -> pd.Series:
+    """Implied-volatility *assumption* used for option positions when no implied-volatility
+    history exists (it is a rule, not an implied volatility)::
 
-    This is an explicit assumption for option positions when no implied-volatility history
-    exists (it is not an implied volatility). The value on day t uses returns up to and including
-    day t (sample standard deviation, ``ddof = 1``); the first ``window - 1`` values are NaN.
+        sigma_imp(t) = max(floor, multiple * sqrt(periods_per_year * s2_t))
+        s2_t = sum_{i=0}^{n-1} w_i r_{t-i}^2,  w_i = (1 - lam) lam^i / (1 - lam^n),
+        n = min(t + 1, window)
+
+    i.e. the zero-mean RiskMetrics EWMA variance of the returns dated up to and including ``t``,
+    truncated to the last ``window`` returns with renormalised weights (the same weights as
+    :func:`mre.models.ewma_covariance`); while fewer than ``window`` returns exist all of them
+    are used. The value at ``t`` uses no return after ``t``.
     """
-    df = log_returns.to_frame() if isinstance(log_returns, pd.Series) else log_returns
-    return multiple * np.sqrt(periods_per_year) * df.rolling(window).std(ddof=1)
+    r2 = np.asarray(log_returns, dtype=float) ** 2
+    if np.isnan(r2).any():
+        raise ValueError("returns contain NaN")
+    full = signal.lfilter([1.0], [1.0, -lam], r2)  # sum_{i=0}^{t} lam^i r_{t-i}^2
+    trunc = full.copy()
+    trunc[window:] -= lam**window * full[:-window]
+    n = np.minimum(np.arange(1, r2.size + 1), window)
+    s2 = (1.0 - lam) * trunc / (1.0 - lam**n)
+    vol = np.maximum(floor, multiple * np.sqrt(periods_per_year * s2))
+    return pd.Series(vol, index=log_returns.index, name="iv_rule")
 
 
 def factor_levels(prices: pd.DataFrame, implied_vol: pd.DataFrame | None = None) -> pd.DataFrame:

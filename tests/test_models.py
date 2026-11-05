@@ -83,6 +83,52 @@ def test_fhs_scenarios_by_hand():
     assert fitted[0].params == fit_garch_t(r[100:1100]).params
 
 
+def test_fhs_bootstrap_draws_residual_dates_with_the_day_seed():
+    r = _returns(1200)
+    exact = FilteredHistoricalSimulation(window=1000, refit_every=20)
+    boot = FilteredHistoricalSimulation(window=1000, refit_every=20, n_boot=5000, seed=11)
+    hist = r[:1100, None]
+    fitted = exact.fit(hist)
+    full, _ = exact.predict(hist, fitted, LinearPnL([1.0]), 1100)
+    pred, _ = boot.predict(hist, fitted, LinearPnL([1.0]), 1100)
+    idx = np.random.default_rng([11, 1100]).integers(0, 1000, size=5000)
+    np.testing.assert_array_equal(pred.scenarios, full.scenarios[idx])
+    again, _ = boot.predict(hist, fitted, LinearPnL([1.0]), 1100)
+    np.testing.assert_array_equal(again.scenarios, pred.scenarios)
+    other, _ = boot.predict(hist, fitted, LinearPnL([1.0]), 1101)
+    assert not np.array_equal(other.scenarios, pred.scenarios)
+
+
+def test_rolling_forecasts_callback_memory_and_failures():
+    x = _returns(400, seed=4)
+    seen = []
+    path = rolling_forecasts(HistoricalSimulation(250), x, 300, 320,
+                             on_forecast=lambda t, f, xr: seen.append((t, f.predictive, xr)),
+                             keep_predictive=False)
+    assert [s[0] for s in seen] == list(range(300, 320))
+    assert all(f.predictive is None for f in path.forecasts)
+    assert all(s[1] is not None for s in seen)
+    np.testing.assert_allclose([s[2] for s in seen], path.realized)
+    fr = path.frame()
+    expected = [empirical_var_es(x[t - 250:t], 0.975, 0.975)[0] for t in range(300, 320)]
+    np.testing.assert_allclose(fr["var_at_es_level"], expected)
+
+    class Flaky(HistoricalSimulation):
+        def predict(self, history, fitted, pnl, index):
+            if index == 305:
+                raise np.linalg.LinAlgError("boom")
+            return super().predict(history, fitted, pnl, index)
+
+    with pytest.raises(np.linalg.LinAlgError):
+        rolling_forecasts(Flaky(250), x, 300, 320)
+    calls = []
+    rec = rolling_forecasts(Flaky(250), x, 300, 320, on_error="record",
+                            on_forecast=lambda t, f, xr: calls.append(t))
+    assert np.isnan(rec.forecasts[5].var) and "boom" in rec.forecasts[5].diagnostics["error"]
+    assert 305 not in calls and len(calls) == 19
+    assert rec.forecasts[6].var == path.forecasts[6].var
+
+
 def test_fhs_with_true_parameters_tracks_true_var():
     """With the true parameters and many residuals, FHS VaR is close to the true VaR."""
     r, s2 = simulate_garch_t(3000, P, np.random.default_rng(5))
@@ -164,6 +210,7 @@ MODELS = [
     EWMAParametric(),
     EWMAParametric(dist="t"),
     FilteredHistoricalSimulation(1000, refit_every=100),
+    FilteredHistoricalSimulation(1000, refit_every=20, n_boot=3000, seed=4),
     MonteCarlo(n_draws=2000, seed=3),
 ]
 

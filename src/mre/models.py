@@ -59,7 +59,11 @@ class PnLFunction(Protocol):
 
 @dataclass(frozen=True)
 class RiskForecast:
-    """A one-day risk forecast. ``var`` and ``es`` are positive loss numbers."""
+    """A one-day risk forecast. ``var``, ``es`` and ``var_at_es_level`` are positive loss numbers.
+
+    ``predictive`` is ``None`` when :func:`rolling_forecasts` was asked not to keep it, or when
+    the forecast failed (then ``var`` and ``es`` are NaN and ``diagnostics["error"]`` says why).
+    """
 
     date: Any
     method: str
@@ -68,7 +72,8 @@ class RiskForecast:
     var: float
     es: float
     diagnostics: Mapping[str, Any]
-    predictive: Predictive
+    predictive: Predictive | None
+    var_at_es_level: float = float("nan")
 
 
 class RiskModel(ABC):
@@ -173,16 +178,21 @@ class FilteredHistoricalSimulation(RiskModel):
     scenarios are ``x*_{s,j} = mu_j + sigma_{t,j} z_{s,j}``, one per residual date ``s`` (rows
     kept together, so cross-sectional dependence of the residuals is preserved).
 
-    At a one-day horizon the bootstrap distribution of one resampled residual vector is the
-    empirical distribution of the residuals itself, so it is enumerated exactly (all ``window``
-    residual dates, equal weights) instead of being resampled with Monte Carlo noise.
+    With ``n_boot = None`` (default) the scenarios are all ``window`` residual dates with equal
+    weights: at a one-day horizon the bootstrap distribution of one resampled residual vector is
+    the empirical distribution of the residuals itself, so it is enumerated exactly. With an
+    integer ``n_boot`` the scenarios are ``n_boot`` residual dates drawn with replacement
+    (residual bootstrap) by ``numpy.random.default_rng([seed, t])`` for forecast row ``t``, so a
+    forecast does not depend on which other days were computed.
 
     Non-convergence of an estimate is reported in the diagnostics (``converged``) and the
     estimate is used as returned by the optimiser.
     """
 
-    def __init__(self, window: int = 1000, refit_every: int = 250):
+    def __init__(self, window: int = 1000, refit_every: int = 250, n_boot: int | None = None,
+                 seed: int = 0):
         self.window, self.refit_every = window, refit_every
+        self.n_boot, self.seed = n_boot, seed
         self.name = f"FHS{window}"
 
     def fit(self, history):
@@ -198,6 +208,9 @@ class FilteredHistoricalSimulation(RiskModel):
             z = (h[:, j] - fit.params.mu) / np.sqrt(s2)
             sig_next[j] = np.sqrt(s2_next)
             scen[:, j] = fit.params.mu + sig_next[j] * z
+        if self.n_boot is not None:
+            rng = np.random.default_rng([self.seed, index])
+            scen = scen[rng.integers(0, scen.shape[0], size=self.n_boot)]
         diag = {"converged": all(f.converged for f in fitted), "sigma_next": sig_next,
                 "params": [f.params for f in fitted]}
         return EmpiricalPnL(pnl(scen)), diag
@@ -253,7 +266,7 @@ class ForecastPath:
         return pd.DataFrame({
             "var": [x.var for x in f],
             "es": [x.es for x in f],
-            "var_at_es_level": [x.predictive.var(x.level_es) for x in f],
+            "var_at_es_level": [x.var_at_es_level for x in f],
             "realized": self.realized,
             "exception": self.realized < -np.array([x.var for x in f]),
         }, index=self.dates)
@@ -262,14 +275,25 @@ class ForecastPath:
 def rolling_forecasts(model: RiskModel, moves: pd.DataFrame | pd.Series | ArrayLike,
                       start: int, end: int | None = None,
                       pnl: PnLFunction | Callable[[int], PnLFunction] | None = None,
-                      level_var: float = 0.99, level_es: float = 0.975) -> ForecastPath:
+                      level_var: float = 0.99, level_es: float = 0.975,
+                      on_forecast: Callable[[int, RiskForecast, float], None] | None = None,
+                      keep_predictive: bool = True, on_error: str = "raise") -> ForecastPath:
     """Forecasts for rows ``start..end-1`` of ``moves``, each using rows before it only.
 
     ``pnl`` is either one :class:`PnLFunction` used every day, or a callable mapping a row number
     to the P&L function valid for that day (a portfolio whose state changes), or ``None`` for a
     single factor whose move is the P&L (``LinearPnL([1.0])``). The realised P&L of day ``t``
     is ``pnl(moves[t])``. Refits happen at ``start`` and then every ``model.refit_every`` days.
+
+    ``on_forecast(t, forecast, realized)`` is called after each successful forecast (row number
+    ``t``, with the predictive distribution attached) so that a caller can use the predictive
+    (for example to simulate an ES backtest) without storing it; ``keep_predictive=False`` then
+    drops it from the returned path to save memory. ``on_error="record"`` turns an exception or a
+    non-finite VaR/ES into a failed forecast (NaN numbers, ``diagnostics["error"]``) instead of
+    raising; failed forecasts are not passed to ``on_forecast``.
     """
+    if on_error not in ("raise", "record"):
+        raise ValueError("on_error must be 'raise' or 'record'")
     if isinstance(moves, (pd.DataFrame, pd.Series)):
         index = moves.index
         x = moves.to_numpy(dtype=float)
@@ -299,10 +323,27 @@ def rolling_forecasts(model: RiskModel, moves: pd.DataFrame | pd.Series | ArrayL
             fitted = model.fit(history)
             fits.append(fitted)
         f_t = pnl_for(t)
-        pred, diag = model.predict(history, fitted, f_t, t)
-        forecasts.append(RiskForecast(date=index[t], method=model.name, level_var=level_var,
-                                      level_es=level_es, var=pred.var(level_var),
-                                      es=pred.es(level_es), diagnostics=diag, predictive=pred))
         realized[t - start] = float(f_t(x[t:t + 1])[0])
+        try:
+            pred, diag = model.predict(history, fitted, f_t, t)
+            nums = (pred.var(level_var), pred.es(level_es), pred.var(level_es))
+            if not np.all(np.isfinite(nums)):
+                raise FloatingPointError(f"non-finite forecast {nums}")
+        except Exception as exc:  # recorded in the forecast, not swallowed
+            if on_error == "raise":
+                raise
+            nan = float("nan")
+            forecasts.append(RiskForecast(index[t], model.name, level_var, level_es, nan, nan,
+                                          {"error": f"{type(exc).__name__}: {exc}"}, None, nan))
+            continue
+        fc = RiskForecast(date=index[t], method=model.name, level_var=level_var,
+                          level_es=level_es, var=nums[0], es=nums[1], diagnostics=diag,
+                          predictive=pred, var_at_es_level=nums[2])
+        if on_forecast is not None:
+            on_forecast(t, fc, realized[t - start])
+        if not keep_predictive:
+            fc = RiskForecast(fc.date, fc.method, level_var, level_es, fc.var, fc.es, diag,
+                              None, fc.var_at_es_level)
+        forecasts.append(fc)
     return ForecastPath(dates=index[start:end], forecasts=forecasts, realized=realized,
                         fits=fits)

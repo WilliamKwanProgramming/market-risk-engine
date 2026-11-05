@@ -76,7 +76,7 @@ def run_replication(set_name: str, rep: int) -> list[dict]:
         path = rolling_forecasts(m, r, N_HIST)
         var = np.array([f.var for f in path.forecasts])
         es = np.array([f.es for f in path.forecasts])
-        var975 = np.array([f.predictive.var(0.975) for f in path.forecasts])
+        var975 = np.array([f.var_at_es_level for f in path.forecasts])
         x = path.realized
         exc = x < -var
         chr_ = christoffersen(exc, 0.99)
