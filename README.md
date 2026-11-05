@@ -1,5 +1,7 @@
 # Market Risk Engine: VaR, Expected Shortfall and Backtesting
 
+[![CI](https://github.com/WilliamKwanProgramming/market-risk-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/WilliamKwanProgramming/market-risk-engine/actions/workflows/ci.yml)
+
 A small Python library that forecasts one-day 99% value-at-risk (VaR) and 97.5% expected
 shortfall (ES) with seven methods, revalues option positions in full, and backtests the forecasts
 with coverage, independence, ES and scoring tests. It was validated first on simulated data with
