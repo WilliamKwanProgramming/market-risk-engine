@@ -82,7 +82,7 @@ class Greeks:
     """Analytic BSM sensitivities (same shape as the broadcast inputs).
 
     ``delta = dV/dS``, ``gamma = d2V/dS2``, ``vega = dV/dsigma``, ``theta = -dV/dT`` (per year),
-    ``rho = dV/dr``.
+    ``rho = dV/dr``, ``vanna = d2V/(dS dsigma)``, ``volga = d2V/dsigma2``.
     """
 
     price: NDArray[np.float64]
@@ -91,6 +91,8 @@ class Greeks:
     vega: NDArray[np.float64]
     theta: NDArray[np.float64]
     rho: NDArray[np.float64]
+    vanna: NDArray[np.float64]
+    volga: NDArray[np.float64]
 
 
 def bsm_greeks(S: ArrayLike, K: ArrayLike, T: ArrayLike, r: ArrayLike, q: ArrayLike,
@@ -105,9 +107,11 @@ def bsm_greeks(S: ArrayLike, K: ArrayLike, T: ArrayLike, r: ArrayLike, q: ArrayL
         theta_call = -S e^{-qT} phi(d1) sigma/(2 sqrt T) - r K e^{-rT} N(d2) + q S e^{-qT} N(d1)
         theta_put  = -S e^{-qT} phi(d1) sigma/(2 sqrt T) + r K e^{-rT} N(-d2) - q S e^{-qT} N(-d1)
         rho_call   = K T e^{-rT} N(d2)             rho_put = -K T e^{-rT} N(-d2)
+        vanna      = -e^{-qT} phi(d1) d2 / sigma   (same for calls and puts)
+        volga      = vega d1 d2 / sigma            (same for calls and puts)
 
-    For ``sigma sqrt(T) = 0`` the limits are used: gamma = vega = 0; for ``T > 0`` theta and rho
-    are those of the deterministic payoff; for ``T <= 0`` theta = rho = 0.
+    For ``sigma sqrt(T) = 0`` the limits are used: gamma = vega = vanna = volga = 0; for
+    ``T > 0`` theta and rho are those of the deterministic payoff; for ``T <= 0`` theta = rho = 0.
     """
     d1, d2, sd, deg, Tc, S, K, r, q = _d1_d2(S, K, T, r, q, sigma)
     is_call = np.broadcast_to(np.asarray(is_call, dtype=bool), d1.shape)
@@ -127,10 +131,16 @@ def bsm_greeks(S: ArrayLike, K: ArrayLike, T: ArrayLike, r: ArrayLike, q: ArrayL
     theta_p = decay + r * K * dr * Nmd2 - q * S * dq * Nmd1
     theta = np.where(is_call, theta_c, theta_p)
     rho = np.where(is_call, K * Tc * dr * Nd2, -K * Tc * dr * Nmd2)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sig_safe = np.where(deg, 1.0, sigma)
+        d1s, d2s = np.where(deg, 0.0, d1), np.where(deg, 0.0, d2)
+        vanna = np.where(deg, 0.0, -dq * pdf1 * d2s / sig_safe)
+        volga = np.where(deg, 0.0, vega * d1s * d2s / sig_safe)
     expired = Tc <= 0.0
     theta = np.where(expired, 0.0, theta)
     rho = np.where(expired, 0.0, rho)
-    return Greeks(price=price, delta=delta, gamma=gamma, vega=vega, theta=theta, rho=rho)
+    return Greeks(price=price, delta=delta, gamma=gamma, vega=vega, theta=theta, rho=rho,
+                  vanna=vanna, volga=volga)
 
 
 def implied_vol(price: ArrayLike, S: ArrayLike, K: ArrayLike, T: ArrayLike, r: ArrayLike,

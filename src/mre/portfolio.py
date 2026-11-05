@@ -13,11 +13,13 @@ value. Stock P&L is ``quantity * (S' - S)``; dividends paid during the horizon a
 
 **Delta-gamma(-vega)(-theta) approximation**, for comparison with full revaluation::
 
-    dV ~ delta dS + 0.5 gamma dS^2 [+ vega dsigma] [+ theta h],
+    dV ~ delta dS + 0.5 gamma dS^2 [+ vega dsigma] [+ theta h]
+         [+ vanna dS dsigma + 0.5 volga dsigma^2],
     dS = S (e^x - 1),  dsigma = sigma (e^y - 1)
 
-with the Greeks of :func:`mre.pricing.bsm_greeks` at the current state. Cross terms (vanna,
-volga) are not included.
+with the Greeks of :func:`mre.pricing.bsm_greeks` at the current state. The vanna and volga terms
+(``second_order_vol=True``) complete the second-order expansion in spot and volatility; they are
+off by default.
 
 This is model P&L (hypothetical P&L from revaluing positions with a pricing model), not P&L from
 traded option prices.
@@ -156,7 +158,7 @@ class Portfolio:
 
     def pnl_greeks(self, state: MarketState, moves: ArrayLike,
                    horizon: float = 1.0 / TRADING_DAYS, vega: bool = True,
-                   theta: bool = True) -> NDArray[np.float64]:
+                   theta: bool = True, second_order_vol: bool = False) -> NDArray[np.float64]:
         """Delta-gamma(-vega)(-theta) P&L per scenario and position (module docstring)."""
         x, col = self._factor_columns(moves)
         out = np.empty((x.shape[0], len(self.positions)))
@@ -170,8 +172,11 @@ class Portfolio:
             g = bsm_greeks(S, p.strike, p.expiry, state.rate, state.q(p.underlying), sig,
                            p.is_call)
             approx = g.delta * dS + 0.5 * g.gamma * dS**2
+            dsig = sig * np.expm1(x[:, col[f"logIV:{p.underlying}"]])
             if vega:
-                approx = approx + g.vega * sig * np.expm1(x[:, col[f"logIV:{p.underlying}"]])
+                approx = approx + g.vega * dsig
+            if second_order_vol:
+                approx = approx + g.vanna * dS * dsig + 0.5 * g.volga * dsig**2
             if theta:
                 approx = approx + g.theta * horizon
             out[:, j] = p.quantity * p.multiplier * approx
