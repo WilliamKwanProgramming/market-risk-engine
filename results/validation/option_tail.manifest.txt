@@ -1,10 +1,10 @@
 experiment: option_tail
 command: python -m mre.experiments.option_tail --batches 20 --batch-size 50000 --out results/validation
 seeds: default_rng([20261108, batch]); the same draws are rescaled for every state and portfolio
-git commit: 5dae7e57f96dcef4b6a6a4110c87b67123bf0915 (working tree clean)
+git commit: 8785d4246446f699b74954eb343de5a91b7de173 (working tree clean)
 python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
-machine: Linux x86_64, 2 logical CPUs, load average at start 1.92
-started: 2026-11-05T07:00:28Z
-runtime: 17.9 s
+machine: Linux x86_64, 2 logical CPUs, load average at start 3.83
+started: 2026-11-05T07:38:51Z
+runtime: 29.8 s
 outputs: option_tail.csv, option_tail_summary.csv
 notes: 20 batches of 50000 scenarios

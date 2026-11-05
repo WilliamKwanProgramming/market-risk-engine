@@ -1,0 +1,10 @@
+experiment: hs_regime_typical
+command: python -m mre.experiments.hs_regime --set typical --reps 20 --out results/validation
+seeds: default_rng([20261110, 1, rep]) for rep = 0..19
+git commit: 8785d4246446f699b74954eb343de5a91b7de173 (working tree clean)
+python 3.13.18, numpy 2.5.3, scipy 1.18.1, pandas 3.0.5
+machine: Linux x86_64, 2 logical CPUs, load average at start 3.54
+started: 2026-11-05T07:38:27Z
+runtime: 10.2 s
+outputs: hs_regime_typical.csv
+notes: 2000 forecast days per replication after 1000 history days

@@ -101,48 +101,128 @@
 | yellow | 10.88 (0.07) | 10.76 | 53.09 (0.11) | 53.09 |
 | red | 0.03 (0.00) | 0.03 | 3.07 (0.04) | 3.04 |
 
-**Table D-normal. Simulated data: error of Greek approximations relative to full revaluation, one-day P&L, normal innovations.** Mean over 20 batches of scenarios (Monte Carlo standard error), in percent. 'VaR full' is the full-revaluation 99% VaR in index points (index = 100). DG = delta-gamma-theta, DGV = delta-gamma-vega-theta. Tail MAE = mean absolute P&L error of DGV over the scenarios in the full-revaluation 97.5% tail, divided by the full-revaluation 97.5% ES.
+**Table D-normal. Simulated data: error of Greek approximations relative to full revaluation, one-day P&L, normal innovations.** Mean over 20 batches of scenarios (Monte Carlo standard error), in percent. 'VaR full' is the full-revaluation 99% VaR in index points (index = 100). DG = delta-gamma-theta, DGV = delta-gamma-vega-theta, DGVX = DGV plus vanna and volga (section d'). Tail MAE = mean absolute P&L error of DGV over the scenarios in the full-revaluation 97.5% tail, divided by the full-revaluation 97.5% ES.
 
-| Portfolio | sigma0 | VaR full | DG VaR err | DGV VaR err | DG ES err | DGV ES err | DGV tail MAE |
+| Portfolio | sigma0 | VaR full | DG VaR err | DGV VaR err | DGVX VaR err | DG ES err | DGV ES err | DGVX ES err | DGV tail MAE |
+|---|---|---|---|---|---|---|---|---|---|
+| long ATM call | 0.12 | 0.650 | 20.0 (0.1) | -1.7 (0.0) | -2.0 (0.0) | 19.8 (0.1) | -1.9 (0.0) | -2.1 (0.0) | 2.1 (0.0) |
+| short ATM put | 0.12 | 1.130 | -13.8 (0.1) | 1.5 (0.0) | 1.8 (0.0) | -13.8 (0.0) | 1.7 (0.0) | 1.9 (0.0) | 1.7 (0.0) |
+| short ATM straddle | 0.12 | 0.557 | -27.2 (0.3) | 6.1 (0.1) | 7.2 (0.1) | -26.3 (0.3) | 6.6 (0.0) | 7.7 (0.0) | 7.3 (0.0) |
+| delta-hedged short straddle | 0.12 | 0.635 | -41.8 (0.2) | 5.8 (0.0) | 6.7 (0.0) | -41.0 (0.2) | 6.2 (0.0) | 7.1 (0.0) | 6.3 (0.0) |
+| long 90 put, short 110 call | 0.12 | 0.007 | 48.8 (0.4) | 21.2 (0.3) | -0.7 (0.2) | 47.3 (0.3) | 20.1 (0.2) | -1.8 (0.1) | 24.3 (0.1) |
+| short 90 put | 0.12 | 0.012 | -76.1 (0.1) | -63.5 (0.1) | -32.2 (0.1) | -77.3 (0.0) | -65.4 (0.1) | -35.2 (0.1) | 65.7 (0.1) |
+| long ATM call | 0.20 | 1.092 | 17.6 (0.1) | -1.7 (0.0) | -1.7 (0.0) | 17.4 (0.1) | -1.7 (0.0) | -1.7 (0.0) | 2.0 (0.0) |
+| short ATM put | 0.20 | 1.854 | -12.7 (0.1) | 1.5 (0.0) | 1.5 (0.0) | -12.6 (0.0) | 1.7 (0.0) | 1.7 (0.0) | 1.7 (0.0) |
+| short ATM straddle | 0.20 | 0.886 | -24.4 (0.3) | 6.6 (0.1) | 6.6 (0.1) | -23.6 (0.3) | 7.1 (0.0) | 7.1 (0.0) | 7.8 (0.0) |
+| delta-hedged short straddle | 0.20 | 1.000 | -38.3 (0.3) | 6.3 (0.0) | 6.3 (0.0) | -37.5 (0.2) | 6.6 (0.0) | 6.6 (0.0) | 6.8 (0.0) |
+| long 90 put, short 110 call | 0.20 | 0.210 | 33.6 (0.3) | 22.5 (0.2) | -8.0 (0.1) | 32.7 (0.2) | 21.5 (0.1) | -8.8 (0.1) | 18.7 (0.1) |
+| short 90 put | 0.20 | 0.247 | -48.7 (0.1) | -29.7 (0.1) | -6.2 (0.1) | -49.5 (0.0) | -30.7 (0.0) | -6.9 (0.0) | 30.9 (0.0) |
+| long ATM call | 0.40 | 2.249 | 14.5 (0.1) | -1.2 (0.0) | -0.9 (0.0) | 14.3 (0.1) | -1.2 (0.0) | -1.0 (0.0) | 1.8 (0.0) |
+| short ATM put | 0.40 | 3.563 | -11.4 (0.1) | 1.4 (0.0) | 1.1 (0.0) | -11.4 (0.0) | 1.6 (0.0) | 1.3 (0.0) | 1.6 (0.0) |
+| short ATM straddle | 0.40 | 1.569 | -10.5 (0.4) | 6.8 (0.1) | 5.3 (0.1) | -9.2 (0.4) | 7.2 (0.0) | 5.7 (0.0) | 8.2 (0.0) |
+| delta-hedged short straddle | 0.40 | 1.843 | -32.9 (0.3) | 6.2 (0.1) | 5.0 (0.1) | -32.0 (0.2) | 6.6 (0.0) | 5.4 (0.0) | 6.8 (0.0) |
+| long 90 put, short 110 call | 0.40 | 2.110 | 13.6 (0.1) | 10.4 (0.1) | -3.4 (0.1) | 13.4 (0.1) | 10.2 (0.0) | -4.0 (0.0) | 9.7 (0.0) |
+| short 90 put | 0.40 | 1.646 | -26.4 (0.1) | -8.7 (0.0) | 0.3 (0.1) | -26.7 (0.0) | -9.0 (0.0) | 0.3 (0.0) | 9.0 (0.0) |
+
+**Table D-t4. Simulated data: error of Greek approximations relative to full revaluation, one-day P&L, t4 innovations.** Mean over 20 batches of scenarios (Monte Carlo standard error), in percent. 'VaR full' is the full-revaluation 99% VaR in index points (index = 100). DG = delta-gamma-theta, DGV = delta-gamma-vega-theta, DGVX = DGV plus vanna and volga (section d'). Tail MAE = mean absolute P&L error of DGV over the scenarios in the full-revaluation 97.5% tail, divided by the full-revaluation 97.5% ES.
+
+| Portfolio | sigma0 | VaR full | DG VaR err | DGV VaR err | DGVX VaR err | DG ES err | DGV ES err | DGVX ES err | DGV tail MAE |
+|---|---|---|---|---|---|---|---|---|---|
+| long ATM call | 0.12 | 0.702 | 21.2 (0.1) | -3.7 (0.1) | -4.1 (0.1) | 19.9 (0.1) | -5.6 (0.1) | -6.1 (0.1) | 6.8 (0.2) |
+| short ATM put | 0.12 | 1.305 | -13.1 (0.1) | 2.0 (0.0) | 2.3 (0.0) | -10.8 (0.1) | 3.9 (0.1) | 4.3 (0.1) | 3.6 (0.1) |
+| short ATM straddle | 0.12 | 0.785 | -17.4 (0.5) | 4.6 (0.2) | 5.7 (0.2) | -7.9 (0.5) | 11.3 (0.4) | 12.5 (0.4) | 14.6 (0.4) |
+| delta-hedged short straddle | 0.12 | 0.844 | -25.3 (0.4) | 5.2 (0.1) | 6.2 (0.1) | -15.3 (0.5) | 11.4 (0.4) | 12.5 (0.4) | 13.5 (0.4) |
+| long 90 put, short 110 call | 0.12 | 0.008 | 57.1 (0.7) | 30.4 (0.6) | -13.9 (0.3) | -1.0 (5.9) | -15.5 (5.0) | -46.3 (3.6) | 56.7 (2.4) |
+| short 90 put | 0.12 | 0.016 | -77.2 (0.1) | -67.2 (0.1) | -35.6 (0.2) | -86.2 (0.3) | -81.0 (0.4) | -60.1 (0.8) | 81.7 (0.4) |
+| long ATM call | 0.20 | 1.177 | 19.0 (0.1) | -3.6 (0.1) | -3.6 (0.1) | 17.8 (0.1) | -5.4 (0.1) | -5.4 (0.1) | 6.5 (0.2) |
+| short ATM put | 0.20 | 2.144 | -12.1 (0.1) | 2.0 (0.0) | 2.0 (0.0) | -9.9 (0.2) | 4.0 (0.1) | 4.0 (0.1) | 3.6 (0.1) |
+| short ATM straddle | 0.20 | 1.265 | -14.8 (0.5) | 5.0 (0.2) | 5.0 (0.2) | -5.1 (0.5) | 11.8 (0.4) | 11.8 (0.4) | 15.1 (0.4) |
+| delta-hedged short straddle | 0.20 | 1.350 | -22.1 (0.4) | 5.4 (0.1) | 5.4 (0.1) | -12.0 (0.5) | 11.9 (0.4) | 11.9 (0.4) | 14.1 (0.4) |
+| long 90 put, short 110 call | 0.20 | 0.241 | 34.9 (0.3) | 23.7 (0.2) | -16.4 (0.2) | 16.1 (0.9) | 7.0 (0.8) | -33.3 (0.8) | 25.8 (0.5) |
+| short 90 put | 0.20 | 0.305 | -49.3 (0.1) | -32.2 (0.1) | -6.7 (0.2) | -52.9 (0.3) | -39.0 (0.3) | -11.6 (0.5) | 40.3 (0.2) |
+| long ATM call | 0.40 | 2.418 | 16.1 (0.1) | -2.8 (0.1) | -2.3 (0.1) | 15.3 (0.1) | -4.5 (0.1) | -3.9 (0.1) | 5.5 (0.1) |
+| short ATM put | 0.40 | 4.120 | -11.1 (0.1) | 1.9 (0.1) | 1.6 (0.0) | -8.9 (0.2) | 3.9 (0.2) | 3.5 (0.2) | 3.2 (0.1) |
+| short ATM straddle | 0.40 | 2.354 | -6.4 (0.6) | 5.1 (0.2) | 3.5 (0.2) | 3.6 (0.7) | 12.8 (0.6) | 11.1 (0.6) | 15.5 (0.6) |
+| delta-hedged short straddle | 0.40 | 2.542 | -17.3 (0.4) | 5.6 (0.1) | 4.3 (0.1) | -6.4 (0.7) | 12.8 (0.6) | 11.3 (0.6) | 14.4 (0.6) |
+| long 90 put, short 110 call | 0.40 | 2.422 | 13.4 (0.1) | 10.2 (0.1) | -5.6 (0.1) | 7.7 (0.2) | 4.9 (0.2) | -12.9 (0.3) | 10.3 (0.1) |
+| short 90 put | 0.40 | 1.957 | -26.6 (0.1) | -9.4 (0.1) | 0.6 (0.1) | -25.7 (0.3) | -9.8 (0.3) | 2.7 (0.4) | 11.4 (0.1) |
+
+**Table E. Simulated data: size and power of the Acerbi-Szekely tests at 97.5% with 5000 simulations per test (GARCH(1,1)-t set `typical`).** Rejection rate at 5% (%) with its binomial standard error; mean of the statistic; mean number of 97.5% VaR exceedances. `correct` = the true conditional distribution (size); `normal` = right variance, normal shape (ES understated); `scale0.9` = true shape with 0.9 times the volatility.
+
+| T | model | Z2 rejection | mean Z2 | Z1 rejection | mean Z1 | exceedances | replications |
 |---|---|---|---|---|---|---|---|
-| long ATM call | 0.12 | 0.650 | 20.0 (0.1) | -1.7 (0.0) | 19.8 (0.1) | -1.9 (0.0) | 2.1 (0.0) |
-| short ATM put | 0.12 | 1.130 | -13.8 (0.1) | 1.5 (0.0) | -13.8 (0.0) | 1.7 (0.0) | 1.7 (0.0) |
-| short ATM straddle | 0.12 | 0.557 | -27.2 (0.3) | 6.1 (0.1) | -26.3 (0.3) | 6.6 (0.0) | 7.3 (0.0) |
-| delta-hedged short straddle | 0.12 | 0.635 | -41.8 (0.2) | 5.8 (0.0) | -41.0 (0.2) | 6.2 (0.0) | 6.3 (0.0) |
-| long 90 put, short 110 call | 0.12 | 0.007 | 48.8 (0.4) | 21.2 (0.3) | 47.3 (0.3) | 20.1 (0.2) | 24.3 (0.1) |
-| short 90 put | 0.12 | 0.012 | -76.1 (0.1) | -63.5 (0.1) | -77.3 (0.0) | -65.4 (0.1) | 65.7 (0.1) |
-| long ATM call | 0.20 | 1.092 | 17.6 (0.1) | -1.7 (0.0) | 17.4 (0.1) | -1.7 (0.0) | 2.0 (0.0) |
-| short ATM put | 0.20 | 1.854 | -12.7 (0.1) | 1.5 (0.0) | -12.6 (0.0) | 1.7 (0.0) | 1.7 (0.0) |
-| short ATM straddle | 0.20 | 0.886 | -24.4 (0.3) | 6.6 (0.1) | -23.6 (0.3) | 7.1 (0.0) | 7.8 (0.0) |
-| delta-hedged short straddle | 0.20 | 1.000 | -38.3 (0.3) | 6.3 (0.0) | -37.5 (0.2) | 6.6 (0.0) | 6.8 (0.0) |
-| long 90 put, short 110 call | 0.20 | 0.210 | 33.6 (0.3) | 22.5 (0.2) | 32.7 (0.2) | 21.5 (0.1) | 18.7 (0.1) |
-| short 90 put | 0.20 | 0.247 | -48.7 (0.1) | -29.7 (0.1) | -49.5 (0.0) | -30.7 (0.0) | 30.9 (0.0) |
-| long ATM call | 0.40 | 2.249 | 14.5 (0.1) | -1.2 (0.0) | 14.3 (0.1) | -1.2 (0.0) | 1.8 (0.0) |
-| short ATM put | 0.40 | 3.563 | -11.4 (0.1) | 1.4 (0.0) | -11.4 (0.0) | 1.6 (0.0) | 1.6 (0.0) |
-| short ATM straddle | 0.40 | 1.569 | -10.5 (0.4) | 6.8 (0.1) | -9.2 (0.4) | 7.2 (0.0) | 8.2 (0.0) |
-| delta-hedged short straddle | 0.40 | 1.843 | -32.9 (0.3) | 6.2 (0.1) | -32.0 (0.2) | 6.6 (0.0) | 6.8 (0.0) |
-| long 90 put, short 110 call | 0.40 | 2.110 | 13.6 (0.1) | 10.4 (0.1) | 13.4 (0.1) | 10.2 (0.0) | 9.7 (0.0) |
-| short 90 put | 0.40 | 1.646 | -26.4 (0.1) | -8.7 (0.0) | -26.7 (0.0) | -9.0 (0.0) | 9.0 (0.0) |
+| 250 | correct | 4.5 (1.5) | -0.013 | 4.5 (1.5) | 0.001 | 6.3 | 200 |
+| 250 | normal | 13.0 (2.4) | -0.169 | 31.0 (3.3) | -0.084 | 6.7 | 200 |
+| 250 | scale0.9 | 31.5 (3.3) | -0.479 | 5.0 (1.5) | -0.023 | 9.0 | 200 |
+| 1000 | correct | 6.0 (1.7) | 0.009 | 4.0 (1.4) | 0.004 | 24.9 | 200 |
+| 1000 | normal | 20.5 (2.9) | -0.144 | 71.0 (3.2) | -0.081 | 26.5 | 200 |
+| 1000 | scale0.9 | 70.0 (3.2) | -0.458 | 8.0 (1.9) | -0.018 | 35.8 | 200 |
 
-**Table D-t4. Simulated data: error of Greek approximations relative to full revaluation, one-day P&L, t4 innovations.** Mean over 20 batches of scenarios (Monte Carlo standard error), in percent. 'VaR full' is the full-revaluation 99% VaR in index points (index = 100). DG = delta-gamma-theta, DGV = delta-gamma-vega-theta. Tail MAE = mean absolute P&L error of DGV over the scenarios in the full-revaluation 97.5% tail, divided by the full-revaluation 97.5% ES.
+**Table F-calm. Simulated data: historical-simulation 99% VaR error by volatility regime, GARCH(1,1)-t set `calm`, 20 replications of 2000 forecast days.** Mean over replications of the class mean (Monte Carlo standard error), in percent. Level: true sigma below 0.8 / above 1.25 times the unconditional volatility. Change: true sigma divided by the root mean true variance over the method's own window, below 0.8 (falling) / above 1.25 (rising). Reps = replications with days in the class; Days = share of forecast days in the class (%).
 
-| Portfolio | sigma0 | VaR full | DG VaR err | DGV VaR err | DG ES err | DGV ES err | DGV tail MAE |
-|---|---|---|---|---|---|---|---|
-| long ATM call | 0.12 | 0.702 | 21.2 (0.1) | -3.7 (0.1) | 19.9 (0.1) | -5.6 (0.1) | 6.8 (0.2) |
-| short ATM put | 0.12 | 1.305 | -13.1 (0.1) | 2.0 (0.0) | -10.8 (0.1) | 3.9 (0.1) | 3.6 (0.1) |
-| short ATM straddle | 0.12 | 0.785 | -17.4 (0.5) | 4.6 (0.2) | -7.9 (0.5) | 11.3 (0.4) | 14.6 (0.4) |
-| delta-hedged short straddle | 0.12 | 0.844 | -25.3 (0.4) | 5.2 (0.1) | -15.3 (0.5) | 11.4 (0.4) | 13.5 (0.4) |
-| long 90 put, short 110 call | 0.12 | 0.008 | 57.1 (0.7) | 30.4 (0.6) | -1.0 (5.9) | -15.5 (5.0) | 56.7 (2.4) |
-| short 90 put | 0.12 | 0.016 | -77.2 (0.1) | -67.2 (0.1) | -86.2 (0.3) | -81.0 (0.4) | 81.7 (0.4) |
-| long ATM call | 0.20 | 1.177 | 19.0 (0.1) | -3.6 (0.1) | 17.8 (0.1) | -5.4 (0.1) | 6.5 (0.2) |
-| short ATM put | 0.20 | 2.144 | -12.1 (0.1) | 2.0 (0.0) | -9.9 (0.2) | 4.0 (0.1) | 3.6 (0.1) |
-| short ATM straddle | 0.20 | 1.265 | -14.8 (0.5) | 5.0 (0.2) | -5.1 (0.5) | 11.8 (0.4) | 15.1 (0.4) |
-| delta-hedged short straddle | 0.20 | 1.350 | -22.1 (0.4) | 5.4 (0.1) | -12.0 (0.5) | 11.9 (0.4) | 14.1 (0.4) |
-| long 90 put, short 110 call | 0.20 | 0.241 | 34.9 (0.3) | 23.7 (0.2) | 16.1 (0.9) | 7.0 (0.8) | 25.8 (0.5) |
-| short 90 put | 0.20 | 0.305 | -49.3 (0.1) | -32.2 (0.1) | -52.9 (0.3) | -39.0 (0.3) | 40.3 (0.2) |
-| long ATM call | 0.40 | 2.418 | 16.1 (0.1) | -2.8 (0.1) | 15.3 (0.1) | -4.5 (0.1) | 5.5 (0.1) |
-| short ATM put | 0.40 | 4.120 | -11.1 (0.1) | 1.9 (0.1) | -8.9 (0.2) | 3.9 (0.2) | 3.2 (0.1) |
-| short ATM straddle | 0.40 | 2.354 | -6.4 (0.6) | 5.1 (0.2) | 3.6 (0.7) | 12.8 (0.6) | 15.5 (0.6) |
-| delta-hedged short straddle | 0.40 | 2.542 | -17.3 (0.4) | 5.6 (0.1) | -6.4 (0.7) | 12.8 (0.6) | 14.4 (0.6) |
-| long 90 put, short 110 call | 0.40 | 2.422 | 13.4 (0.1) | 10.2 (0.1) | 7.7 (0.2) | 4.9 (0.2) | 10.3 (0.1) |
-| short 90 put | 0.40 | 1.957 | -26.6 (0.1) | -9.4 (0.1) | -25.7 (0.3) | -9.8 (0.3) | 11.4 (0.1) |
+| Method | classification | class | VaR error | Exc. rate | Reps | Days |
+|---|---|---|---|---|---|---|
+| HS250 | level | low | 18.5 (3.3) | 0.00 (0.00) | 14 | 0.3 |
+| HS250 | level | middle | 2.7 (0.7) | 1.28 (0.03) | 20 | 96.6 |
+| HS250 | level | high | -17.5 (1.1) | 1.52 (0.39) | 20 | 3.1 |
+| HS250 | change | falling | 35.5 (3.8) | 0.00 (0.00) | 18 | 1.0 |
+| HS250 | change | stable | 2.3 (0.7) | 1.27 (0.04) | 20 | 96.3 |
+| HS250 | change | rising | -20.3 (0.7) | 2.27 (0.49) | 20 | 2.7 |
+| HS500 | level | low | 30.4 (2.7) | 0.00 (0.00) | 14 | 0.3 |
+| HS500 | level | middle | 5.2 (0.7) | 1.01 (0.05) | 20 | 96.6 |
+| HS500 | level | high | -18.8 (0.8) | 1.85 (0.40) | 20 | 3.1 |
+| HS500 | change | falling | 36.4 (2.8) | 0.00 (0.00) | 19 | 0.8 |
+| HS500 | change | stable | 5.0 (0.6) | 0.99 (0.05) | 20 | 96.4 |
+| HS500 | change | rising | -20.0 (0.8) | 2.77 (0.51) | 20 | 2.9 |
+| HS1000 | level | low | 27.9 (1.5) | 0.00 (0.00) | 14 | 0.3 |
+| HS1000 | level | middle | 4.3 (0.7) | 1.01 (0.05) | 20 | 96.6 |
+| HS1000 | level | high | -22.1 (0.9) | 2.00 (0.42) | 20 | 3.1 |
+| HS1000 | change | falling | 31.4 (1.4) | 0.00 (0.00) | 16 | 0.7 |
+| HS1000 | change | stable | 4.2 (0.7) | 1.00 (0.05) | 20 | 96.3 |
+| HS1000 | change | rising | -22.7 (0.8) | 2.35 (0.42) | 20 | 3.1 |
+
+**Table F-typical. Simulated data: historical-simulation 99% VaR error by volatility regime, GARCH(1,1)-t set `typical`, 20 replications of 2000 forecast days.** Mean over replications of the class mean (Monte Carlo standard error), in percent. Level: true sigma below 0.8 / above 1.25 times the unconditional volatility. Change: true sigma divided by the root mean true variance over the method's own window, below 0.8 (falling) / above 1.25 (rising). Reps = replications with days in the class; Days = share of forecast days in the class (%).
+
+| Method | classification | class | VaR error | Exc. rate | Reps | Days |
+|---|---|---|---|---|---|---|
+| HS250 | level | low | 29.4 (2.7) | 0.54 (0.08) | 20 | 39.3 |
+| HS250 | level | middle | 5.1 (2.2) | 1.43 (0.09) | 20 | 48.2 |
+| HS250 | level | high | -18.9 (3.0) | 3.28 (0.37) | 20 | 12.5 |
+| HS250 | change | falling | 50.5 (3.2) | 0.24 (0.05) | 20 | 27.3 |
+| HS250 | change | stable | 2.3 (1.0) | 1.17 (0.08) | 20 | 58.2 |
+| HS250 | change | rising | -27.2 (0.8) | 4.04 (0.31) | 20 | 14.5 |
+| HS500 | level | low | 44.2 (3.5) | 0.33 (0.06) | 20 | 39.3 |
+| HS500 | level | middle | 11.8 (3.1) | 1.12 (0.09) | 20 | 48.2 |
+| HS500 | level | high | -22.8 (2.9) | 3.49 (0.34) | 20 | 12.5 |
+| HS500 | change | falling | 59.7 (4.2) | 0.12 (0.03) | 20 | 30.5 |
+| HS500 | change | stable | 8.7 (1.2) | 0.91 (0.08) | 20 | 55.0 |
+| HS500 | change | rising | -26.9 (0.8) | 3.90 (0.30) | 20 | 14.5 |
+| HS1000 | level | low | 52.6 (5.7) | 0.20 (0.05) | 20 | 39.3 |
+| HS1000 | level | middle | 13.6 (4.3) | 0.94 (0.08) | 20 | 48.2 |
+| HS1000 | level | high | -28.0 (2.5) | 3.72 (0.31) | 20 | 12.5 |
+| HS1000 | change | falling | 58.1 (5.9) | 0.14 (0.03) | 20 | 35.1 |
+| HS1000 | change | stable | 11.0 (1.3) | 0.81 (0.07) | 20 | 50.9 |
+| HS1000 | change | rising | -29.4 (0.8) | 3.91 (0.33) | 20 | 14.0 |
+
+**Table F-persistent_fat. Simulated data: historical-simulation 99% VaR error by volatility regime, GARCH(1,1)-t set `persistent_fat`, 20 replications of 2000 forecast days.** Mean over replications of the class mean (Monte Carlo standard error), in percent. Level: true sigma below 0.8 / above 1.25 times the unconditional volatility. Change: true sigma divided by the root mean true variance over the method's own window, below 0.8 (falling) / above 1.25 (rising). Reps = replications with days in the class; Days = share of forecast days in the class (%).
+
+| Method | classification | class | VaR error | Exc. rate | Reps | Days |
+|---|---|---|---|---|---|---|
+| HS250 | level | low | 43.8 (4.0) | 0.88 (0.06) | 20 | 69.2 |
+| HS250 | level | middle | 5.3 (4.2) | 2.09 (0.23) | 20 | 19.9 |
+| HS250 | level | high | -18.7 (3.9) | 4.10 (0.40) | 20 | 10.9 |
+| HS250 | change | falling | 85.6 (5.8) | 0.28 (0.05) | 20 | 41.3 |
+| HS250 | change | stable | 0.9 (1.4) | 1.37 (0.08) | 20 | 39.7 |
+| HS250 | change | rising | -32.4 (1.0) | 4.24 (0.32) | 20 | 19.1 |
+| HS500 | level | low | 73.3 (5.4) | 0.51 (0.05) | 20 | 69.2 |
+| HS500 | level | middle | 9.9 (5.0) | 1.90 (0.18) | 20 | 19.9 |
+| HS500 | level | high | -26.6 (3.8) | 4.85 (0.34) | 20 | 10.9 |
+| HS500 | change | falling | 103.9 (5.8) | 0.20 (0.03) | 20 | 50.0 |
+| HS500 | change | stable | 8.8 (1.5) | 1.08 (0.08) | 20 | 32.7 |
+| HS500 | change | rising | -33.3 (0.9) | 4.63 (0.28) | 20 | 17.3 |
+| HS1000 | level | low | 91.3 (8.6) | 0.33 (0.05) | 20 | 69.2 |
+| HS1000 | level | middle | 10.6 (5.5) | 1.58 (0.16) | 20 | 19.9 |
+| HS1000 | level | high | -35.3 (3.1) | 6.04 (0.54) | 20 | 10.9 |
+| HS1000 | change | falling | 110.3 (9.4) | 0.16 (0.03) | 20 | 56.9 |
+| HS1000 | change | stable | 11.9 (1.5) | 0.97 (0.09) | 20 | 27.2 |
+| HS1000 | change | rising | -36.4 (1.1) | 5.39 (0.48) | 20 | 15.8 |
