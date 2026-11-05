@@ -251,6 +251,46 @@ def fp_holm(p: float, h: float) -> str:
     return f"**{cell}**" if h < 0.05 else cell
 
 
+def dominance_table(d: pd.DataFrame) -> str:
+    """Table R2b: which days make Z2 and the Diebold-Mariano statistic (post hoc)."""
+    rows = []
+    for r in d.itertuples():
+        z2_day = (f"{r.z2_top_day} ({100 * r.z2_top_share:.0f}%)"
+                  if isinstance(r.z2_top_day, str) and r.z2_top_day else "-")
+        dm_day = (f"{r.dm_top_day} ({100 * r.dm_top_share:.0f}%)"
+                  if isinstance(r.dm_top_day, str) else "-")
+        ratio = "-" if not np.isfinite(r.z2_top_es_ratio) else f"{r.z2_top_es_ratio:.2g}"
+
+        def z2_cell(z, p):
+            return "-" if not np.isfinite(z) else f"{z:.3f} ({fp(p)})"
+
+        def dm_cell(z, p):
+            return "-" if not np.isfinite(z) else f"{z:.2f} ({fp(p)})"
+
+        rows.append([r.portfolio, r.method, f"{r.z2:.3f}", z2_day, ratio,
+                     z2_cell(r.z2_drop1, r.z2_drop1_p), z2_cell(r.z2_drop5, r.z2_drop5_p),
+                     "-" if not np.isfinite(r.dm_stat) else f"{r.dm_stat:.2f}", dm_day,
+                     dm_cell(r.dm_drop1_stat, r.dm_drop1_p),
+                     dm_cell(r.dm_drop5_stat, r.dm_drop5_p)])
+    return (
+        f"**Table R2b. {RD_TITLE}: which days make Z2 and the Diebold-Mariano statistic (post hoc "
+        "sensitivity, not part of the protocol).** Z2 = 1 + the sum of one term per day with a "
+        "97.5% exceedance (all negative); the second column gives the day with the most negative "
+        "term and its share of the sum, the third that day's predicted ES divided by the median "
+        "predicted ES of the method. Z2 (raw Monte Carlo p-value) is then recomputed on the "
+        "same simulated paths after leaving out that day and the 5 days with the most negative "
+        "terms. DM = the statistic of Table R2; the next columns give the day with the largest "
+        "absolute daily FZ0 difference to EWMA-N and its share of the sum of absolute "
+        "differences, and the statistic (raw p) without that day and without the 5 days with the "
+        "largest absolute differences. The p-values are not corrected "
+        "for the choice of days: the table shows how much a rejection rests on a few days, it "
+        "is not a test. STRANGLE is model P&L under an assumed implied-volatility rule.\n\n"
+        + md_table(["Portfolio", "Method", "Z2", "Largest Z2 term: day (share of sum)",
+                    "Its predicted ES / median ES", "Z2 without it (p)",
+                    "Z2 without the 5 largest (p)", "DM", "Largest FZ0 difference: day (share)",
+                    "DM without it (p)", "DM without the 5 largest (p)"], rows))
+
+
 def realdata_tables(res: Path) -> list[str]:
     f = res / "summary.csv"
     if not f.exists():
@@ -292,7 +332,8 @@ def realdata_tables(res: Path) -> list[str]:
     parts.append(
         f"**Table R2. {RD_TITLE}: 97.5% ES backtest and joint VaR/ES scores.** Z2 = "
         f"Acerbi-Szekely Z2 ({int(d.z2_n_sim.iloc[0])} simulations under each method's own "
-        "predictive distributions; negative = realised tail losses larger than predicted), "
+        "predictive distributions; negative = realised tail losses larger than predicted when no "
+        "single day dominates the statistic, see Table R2b), "
         f"p-value raw (Holm over {n_fam['z2_p']} cells). Shortfall ratio = mean realised loss "
         "over mean predicted ES on the days with loss above the 97.5% VaR (number of such days "
         "in parentheses; 1 for a correct model). FZ0 = mean FZ0 score (lower is better; scale "
@@ -300,9 +341,13 @@ def realdata_tables(res: Path) -> list[str]:
         f"EWMA-N (negative = lower score than EWMA-N), Newey-West lag {int(d.dm_lag.iloc[0])}, "
         f"p-value raw (Holm over {n_fam['dm_p']} cells). ES days = common days on which "
         "every method's 97.5% ES is a positive loss; all columns of this table use only those "
-        "days (docs/protocol.md, Part 3).\n\n"
+        "days (docs/protocol.md, Part 3). STRANGLE is model P&L under an assumed "
+        "implied-volatility rule; its Z2, FZ0 and DM values rest on very few days (Table "
+        "R2b).\n\n"
         + md_table(["Portfolio", "Method", "ES days", "Z2", "Z2 p (Holm)", "Shortfall ratio (n)",
                     "FZ0", "DM", "DM p (Holm)"], rows))
+    if "z2_top_share" in d:
+        parts.append(dominance_table(d))
     windows = list(dict.fromkeys(stress.window))
     rows = []
     for (port, m), g in stress.groupby(["portfolio", "method"], sort=False):
@@ -322,7 +367,8 @@ def realdata_tables(res: Path) -> list[str]:
         f"**Table R3. {RD_TITLE}: pre-specified stress windows.** 99% VaR exceptions / "
         "evaluation days in the window (1% of the days is the expectation); shortfall ratio as "
         f"in R2 over the 97.5% exceedances inside the window (their number in parentheses). "
-        f"Windows: {wdesc}. No test is applied inside the windows.\n\n"
+        f"Windows: {wdesc}. No test is applied inside the windows. STRANGLE is model P&L under "
+        "an assumed implied-volatility rule.\n\n"
         + md_table(head, rows))
     rows = []
     n_years = by_year.year.nunique()
@@ -349,6 +395,28 @@ def realdata_check_tables(res: Path) -> list[str]:
         rows = [[r.check, f"{r.value:.6g}", str(r.note)] for r in c.itertuples()]
         parts.append(f"**Table R5. {RD_TITLE}: data checks.**\n\n"
                      + md_table(["Check", "Value", "Note"], rows))
+    runs = []
+    for port in RD_PORTS:
+        f = res / f"run_{port}.csv"
+        if f.exists():
+            r = pd.read_csv(f)
+            if "var99_nonpositive_days" in r:
+                runs.append(r.assign(portfolio=port))
+    if runs:
+        g = pd.concat(runs)
+        g = g[(g.var99_nonpositive_days > 0) | (g.es975_nonpositive_days > 0)]
+        if len(g):
+            rows = [[r.portfolio, r.method, str(r.forecast_days), str(r.var99_nonpositive_days),
+                     str(r.es975_nonpositive_days)] for r in g.itertuples()]
+            parts.append(
+                f"**Table R7. {RD_TITLE}: forecasts that are not losses.** Days on which a "
+                "method's 99% VaR or 97.5% ES is zero or negative, i.e. the position is "
+                "forecast not to lose in the tail (the short strangle gains from time decay "
+                "close to expiry). An exception on such a day is a gain smaller than predicted; "
+                "ES-based measures leave out the days on which any method's ES is not "
+                "positive (protocol Part 3). Cells not listed are 0.\n\n"
+                + md_table(["Portfolio", "Method", "Forecast days", "VaR99 <= 0 days",
+                            "ES97.5 <= 0 days"], rows))
     fits = sorted(res.glob("fhs_fits_*.csv"))
     if fits:
         rows = []

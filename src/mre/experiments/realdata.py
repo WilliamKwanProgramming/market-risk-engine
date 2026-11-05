@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -38,9 +39,10 @@ from mre.backtest import (
     kupiec_pof,
     newey_west_lag,
     wilson_interval,
+    z2_contributions,
     zone_occupancy,
 )
-from mre.experiments.common import Manifest
+from mre.experiments.common import Manifest, package_versions
 from mre.garch import garch_filter
 from mre.models import (
     EWMAParametric,
@@ -72,6 +74,19 @@ STRANGLE_LAST_DAYS = 21
 INDEX = "SP500"
 H = 1.0 / TRADING_DAYS
 TITLE = "real data: skfolio S&P 500 panel 1990-2022"
+# Fingerprints (mre.data.frame_sha256: column names, dates, float64 values) of the two skfolio
+# frames, as loaded, from which every result in results/realdata was computed (skfolio 1.12.5).
+# A different skfolio version with different data would change the results silently; the run
+# stops instead (docs/protocol.md, Part 6). MRE_ALLOW_DATA_CHANGE=1 overrides the check.
+DATA_SHA256 = {"stocks": "c6635b2fee02639371920b3dbda19553d001b25bfa5011bfd6c2a562cd6458ac",
+               "index": "190ea7d3bf56f358e34d386a4f3547b80be427d93dcbed9a2be81f0819f51c17"}
+# "Largest days" of the post hoc sensitivity analysis of Z2 and the Diebold-Mariano statistic
+# (docs/protocol.md, Part 6): the single largest and the five largest.
+DROP_DAYS = (1, 5)
+Z2_DOMINANCE_COLUMNS = ("z2_top_day", "z2_top_contribution", "z2_top_share", "z2_top5_share",
+                        "z2_top_es_ratio", "z2_drop1", "z2_drop1_p", "z2_drop5", "z2_drop5_p")
+DM_DOMINANCE_COLUMNS = ("dm_top_day", "dm_top_share", "dm_drop1_stat", "dm_drop1_p",
+                        "dm_drop5_stat", "dm_drop5_p")
 
 
 def make_methods() -> dict[str, RiskModel]:
@@ -102,10 +117,28 @@ class PortfolioInput:
     extra: pd.DataFrame | None = None
 
 
+def data_fingerprints(stocks_raw: pd.DataFrame, index_raw: pd.Series) -> dict[str, str]:
+    """SHA-256 fingerprints of the two skfolio frames as loaded (before cleaning)."""
+    return {"stocks": data.frame_sha256(stocks_raw), "index": data.frame_sha256(index_raw)}
+
+
+def verify_data(fingerprints: dict[str, str]) -> None:
+    """Stop if the installed skfolio data differ from the data the results were computed from."""
+    bad = [k for k, v in DATA_SHA256.items() if fingerprints[k] != v]
+    if bad and not os.environ.get("MRE_ALLOW_DATA_CHANGE"):
+        raise RuntimeError(
+            f"the skfolio {' and '.join(bad)} data differ from the data of the stored results "
+            f"(installed: {package_versions(['skfolio'])}; expected SHA-256 {DATA_SHA256}, got "
+            f"{fingerprints}). Results computed from them would not be comparable to "
+            "results/realdata. Set MRE_ALLOW_DATA_CHANGE=1 to run anyway.")
+
+
 def load_market() -> tuple[pd.DataFrame, pd.Series, dict[str, int]]:
     """skfolio stock prices and the S&P 500 index, cleaned with the "drop" policy."""
-    stocks, rep_s = data.clean_prices(data.load_skfolio_prices(), "drop")
-    index, rep_i = data.clean_prices(data.load_skfolio_index(), "drop")
+    stocks_raw, index_raw = data.load_skfolio_prices(), data.load_skfolio_index()
+    verify_data(data_fingerprints(stocks_raw, index_raw))
+    stocks, rep_s = data.clean_prices(stocks_raw, "drop")
+    index, rep_i = data.clean_prices(index_raw, "drop")
     report = {"stocks_rows_dropped": rep_s["rows_dropped"],
               "index_rows_dropped": rep_i["rows_dropped"]}
     return stocks, index[INDEX], report
@@ -243,6 +276,8 @@ def run_forecasts(inp: PortfolioInput, methods: dict[str, RiskModel], end: int |
                      "failed_days": len(failed), "failed": json.dumps(failed),
                      "garch_fits": len(fits),
                      "garch_nonconverged": sum(not g.converged for g in fits),
+                     "var99_nonpositive_days": int((fr["var"] <= 0).sum()),
+                     "es975_nonpositive_days": int((fr["es"] <= 0).sum()),
                      "seconds": round(time.time() - t0, 1)})
         sims[name] = sim
     dates = inp.moves.index[inp.start:end]
@@ -256,8 +291,44 @@ def run_forecasts(inp: PortfolioInput, methods: dict[str, RiskModel], end: int |
         es_rows.append({"method": name, "z1": res["Z1"].statistic, "z1_p": res["Z1"].p_value,
                         "z2": res["Z2"].statistic, "z2_p": res["Z2"].p_value,
                         "exceedances975": res["Z2"].details["n_exceptions"],
-                        "days": res["Z2"].details["n_days"], "n_sim": N_SIM_AS})
+                        "days": res["Z2"].details["n_days"], "n_sim": N_SIM_AS,
+                        **z2_dominance(sim, fc, ok, common_rows, name)})
     return fc, pd.DataFrame(runs), pd.DataFrame(es_rows)
+
+
+def z2_dominance(sim: AcerbiSzekelySimulation, fc: pd.DataFrame, ok: np.ndarray,
+                 rows: np.ndarray, name: str) -> dict:
+    """Which days drive Z2, and Z2 without the largest of them (post hoc, protocol Part 6).
+
+    Z2 = 1 + the sum of the daily terms ``X_t I_t / (T p ES_t)`` (``z2_contributions``), all
+    negative. Reported for method ``name`` on the common days ``rows`` (row labels of ``fc``
+    restricted by the mask ``ok``): the date of the most negative term, that term, its share of
+    the sum of terms, the share of the 5 most negative terms, the predicted ES that day divided
+    by the median predicted ES, and Z2 with its Monte Carlo p-value (same simulated paths, kept
+    days only) after leaving out the 1 and the 5 most negative days. The p-values are not
+    corrected for the choice of days: they show how much of a rejection rests on those days.
+    """
+    x = fc["realized"].to_numpy()[ok]
+    es = fc[f"{name}:es975"].to_numpy()[ok]
+    c = z2_contributions(x, fc[f"{name}:var975"].to_numpy()[ok], es, LEVEL_ES)
+    out: dict = dict.fromkeys(Z2_DOMINANCE_COLUMNS, np.nan)
+    out["z2_top_day"] = ""
+    total = float(c.sum())
+    if total == 0.0:  # no 97.5% exceedance: nothing to attribute
+        return out
+    order = np.argsort(c, kind="stable")
+    order = order[c[order] < 0.0]  # most negative first, exceedance days only
+    top = order[0]
+    out.update(z2_top_day=str(fc.index[ok][top].date()), z2_top_contribution=float(c[top]),
+               z2_top_share=float(c[top] / total),
+               z2_top5_share=float(c[order[:5]].sum() / total),
+               z2_top_es_ratio=float(es[top] / np.median(es)))
+    for k in DROP_DAYS:
+        keep = np.ones(c.size, dtype=bool)
+        keep[order[:k]] = False
+        res = sim.result(rows[keep])["Z2"]
+        out[f"z2_drop{k}"], out[f"z2_drop{k}_p"] = res.statistic, res.p_value
+    return out
 
 
 def es_positive(fc: pd.DataFrame) -> np.ndarray:
@@ -301,6 +372,7 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
         ratio, n975 = shortfall_ratio(x[pos], var975[pos], es975[pos])
         fz = fz0_loss(x[pos], var975[pos], es975[pos], LEVEL_ES)
         dm = diebold_mariano(fz, fz_ref) if m != "EWMA-N" else None
+        dom = dm_dominance(fz, fz_ref, fc.index[pos]) if m != "EWMA-N" else {}
         full.append({
             "portfolio": portfolio, "method": m, "days": n, "first_day": fc.index[0].date(),
             "last_day": fc.index[-1].date(), "exceptions": k, "rate": k / n,
@@ -316,6 +388,8 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
             "dm_stat": np.nan if dm is None else dm.statistic,
             "dm_p": np.nan if dm is None else dm.p_value,
             "dm_lag": newey_west_lag(int(pos.sum())),
+            **{k: es.loc[m, k] if k in es.columns else np.nan for k in Z2_DOMINANCE_COLUMNS},
+            **{k: dom.get(k, np.nan) for k in DM_DOMINANCE_COLUMNS},
         })
         for y in np.unique(years):
             sel = years == y
@@ -335,6 +409,25 @@ def evaluate(portfolio: str, fc: pd.DataFrame, es: pd.DataFrame
                            "expected": round(0.01 * sel.sum(), 2),
                            "exceedances975": nr, "shortfall_ratio": r})
     return pd.DataFrame(full), pd.DataFrame(by_year), pd.DataFrame(stress)
+
+
+def dm_dominance(fz: np.ndarray, fz_ref: np.ndarray, dates: pd.DatetimeIndex) -> dict:
+    """Which days drive the Diebold-Mariano statistic against EWMA-N (post hoc, Part 6).
+
+    With ``d_t = FZ0_t - FZ0_t(EWMA-N)``: the date of the largest ``|d_t|``, its share of
+    ``sum |d_t|``, and the statistic and p-value after leaving out the 1 and the 5 days with the
+    largest ``|d_t|`` (the remaining days are closed up into one series).
+    """
+    d = fz - fz_ref
+    order = np.argsort(-np.abs(d), kind="stable")
+    out: dict = {"dm_top_day": str(dates[order[0]].date()),
+                 "dm_top_share": float(np.abs(d[order[0]]) / np.abs(d).sum())}
+    for k in DROP_DAYS:
+        keep = np.ones(d.size, dtype=bool)
+        keep[order[:k]] = False
+        res = diebold_mariano(fz[keep], fz_ref[keep])
+        out[f"dm_drop{k}_stat"], out[f"dm_drop{k}_p"] = res.statistic, res.p_value
+    return out
 
 
 def fhs_diagnostics(inp: PortfolioInput, fits: list, window: int = 1000,
@@ -435,7 +528,55 @@ def data_checks() -> pd.DataFrame:
              {"check": "IV rule share of days at the 10% floor",
               "value": float((iv.loc[EVAL_START:] == IV_FLOOR).mean()),
               "note": "evaluation period 1994-01-03 to 2022-12-28"}]
+    rows += iv_coupling_checks(index)
+    rows += stale_price_checks(stocks)
     return pd.DataFrame(rows)
+
+
+def iv_coupling_checks(index: pd.Series) -> list[dict]:
+    """The assumed implied volatility is a function of the index return (protocol Part 6).
+
+    Above the floor, ``IV(t)`` follows from ``IV(t-1)`` and the return of day ``t`` alone (the
+    EWMA recursion of the rule), so ``log IV(t) - log IV(t-1)`` is not a second source of
+    randomness: the maximum error of that reconstruction, the correlations of the move with the
+    return and with its absolute value, and the share of days with no move.
+    """
+    lr = data.to_returns(index, "log").iloc[:, 0]
+    iv = data.ewma_vol_rule(lr, IV_MULTIPLE, IV_FLOOR)
+    days = iv.index >= EVAL_START + pd.Timedelta(days=1)  # the STRANGLE evaluation days
+    r, v, v_prev = lr.to_numpy()[days], iv.to_numpy()[days], iv.shift(1).to_numpy()[days]
+    s2_prev = (v_prev / IV_MULTIPLE) ** 2 / TRADING_DAYS
+    lam = 0.94
+    rebuilt = np.maximum(IV_FLOOR, IV_MULTIPLE * np.sqrt(
+        TRADING_DAYS * (lam * s2_prev + (1.0 - lam) * r ** 2)))
+    above = v_prev > IV_FLOOR + 1e-9
+    d = np.log(v) - np.log(v_prev)
+    note = f"{int(days.sum())} evaluation days"
+    return [
+        {"check": "IV rule: max abs error of log IV(t) rebuilt from IV(t-1) and the return of t",
+         "value": float(np.max(np.abs(np.log(rebuilt[above]) - np.log(v[above])))),
+         "note": f"{int(above.sum())} of {note} with IV(t-1) above the floor"},
+        {"check": "IV rule: correlation of the log IV move with the log return",
+         "value": float(np.corrcoef(r, d)[0, 1]), "note": note},
+        {"check": "IV rule: correlation of the log IV move with the absolute log return",
+         "value": float(np.corrcoef(np.abs(r), d)[0, 1]), "note": note},
+        {"check": "IV rule: share of days with a log IV move of exactly zero",
+         "value": float(np.mean(d == 0.0)), "note": note},
+    ]
+
+
+def stale_price_checks(stocks: pd.DataFrame) -> list[dict]:
+    """Stale prices and extreme moves in the stock data (descriptive)."""
+    r = data.to_returns(stocks, "simple")
+    early = r.loc[:"1993-12-31"]
+    zero = (early == 0.0).mean()
+    big = r.abs().stack()
+    (day, stock), size = big.idxmax(), big.max()
+    return [{"check": "stocks: largest share of exactly-zero daily returns in one stock, "
+                      "1990-01-02 to 1993-12-31", "value": float(zero.max()),
+             "note": f"{zero.idxmax()}; inside the 1000-day history of the first EQ20 forecasts"},
+            {"check": "stocks: largest absolute daily simple return in one stock",
+             "value": float(size), "note": f"{stock} on {day.date()}"}]
 
 
 def stage1(name: str, out: Path) -> list[str]:
@@ -497,6 +638,18 @@ def stage2(out: Path) -> list[str]:
     return ["summary.csv", "by_year.csv", "stress.csv", "failures.csv"]
 
 
+def data_manifest_lines(arch: bool = False) -> list[str]:
+    """Manifest lines: package versions and SHA-256 fingerprints of the frames a run reads."""
+    fp = data_fingerprints(data.load_skfolio_prices(), data.load_skfolio_index())
+    lines = [f"data packages: {package_versions(['skfolio', 'arch'])}",
+             f"data SHA-256 (frames as loaded): skfolio stocks {fp['stocks']}; "
+             f"skfolio index {fp['index']}"]
+    if arch:
+        lines.append(f"arch data SHA-256: sp500 {data.frame_sha256(data.load_arch('sp500'))}; "
+                     f"vix {data.frame_sha256(data.load_arch('vix'))}")
+    return lines
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -509,6 +662,8 @@ def main(argv: list[str] | None = None) -> None:
     seeds = (f"FHS bootstrap default_rng([{SEED_FHS}, t]); MC default_rng([{SEED_MC}, t]); "
              f"Acerbi-Szekely default_rng({SEED_AS}) with {N_SIM_AS} simulations")
     man = Manifest("mre.experiments.realdata", seeds)
+    if not args.summarise:
+        man.extra = data_manifest_lines(arch=args.checks)
     if args.portfolio:
         files, tag = stage1(args.portfolio, args.out), f"realdata_{args.portfolio}"
     elif args.summarise:
