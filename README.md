@@ -247,9 +247,9 @@ plots; the S&P 500 index's own daily return is not stored as a column (the dashb
 `skfolio`). Derived series do determine the data they come from, though: the EWMA forecasts and
 the implied-volatility column are functions of the index returns, and the month-start index levels
 can be recovered from the STRANGLE explain components with the model's own formulas
-([docs/protocol.md](docs/protocol.md), Part 6). The first two real-data result commits (4d6f927,
-b02f333) also stored the index level and the SPX daily return as columns; they were removed from
-the files in 0a291bc but remain in the git history. The data are pinned: every real-data manifest
+([docs/protocol.md](docs/protocol.md), Part 6). The first two real-data result commits (610c2c4,
+03de1f9) also stored the index level and the SPX daily return as columns; they were removed from
+the files in e64e1d6 but remain in the git history. The data are pinned: every real-data manifest
 records the skfolio and arch versions and SHA-256 fingerprints of the frames as loaded, and a run
 stops if the skfolio data differ from those of the stored results (`MRE_ALLOW_DATA_CHANGE=1`
 overrides). `results/MANIFEST.txt` records the commit, the commands, seeds, wall and CPU time and
