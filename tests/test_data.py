@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from mre.data import (
+    _french_month_ends,
     clean_prices,
     ewma_vol_rule,
     factor_levels,
@@ -119,6 +120,21 @@ def test_arch_loaders_smoke():
     assert load_arch("vix").index[-1] == pd.Timestamp("2019-01-03")
     with pytest.raises(ValueError):
         load_arch("gold")
+
+
+def test_french_month_ends_from_both_forms_of_the_arch_index():
+    expected = ["1926-07-31", "1926-12-31", "2016-02-29", "2018-11-30"]
+    # arch before 9: the integer YYYYMM stored as nanoseconds since 1970
+    legacy = pd.DatetimeIndex(pd.to_datetime([192607, 192612, 201602, 201811]))
+    assert legacy.max() - legacy.min() < pd.Timedelta(days=1)
+    # arch 9 and later: the first day of each month
+    modern = pd.DatetimeIndex(["1926-07-01", "1926-12-01", "2016-02-01", "2018-11-01"])
+    # a plain integer index, as the function accepted before
+    integers = pd.Index([192607, 192612, 201602, 201811])
+    for index in (legacy, modern, integers):
+        got = _french_month_ends(index)
+        assert [d.strftime("%Y-%m-%d") for d in got] == expected
+        assert isinstance(got, pd.DatetimeIndex) and (got == got.normalize()).all()
 
 
 def test_ewma_vol_rule_truncation_with_a_short_window():

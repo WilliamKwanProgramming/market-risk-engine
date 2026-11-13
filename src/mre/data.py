@@ -69,19 +69,33 @@ def load_skfolio_factors() -> pd.DataFrame:
 def load_arch(name: str) -> pd.DataFrame:
     """One of the ``arch.data`` sets: sp500, nasdaq, vix, wti, crude, frenchdata.
 
-    ``frenchdata`` comes with an integer YYYYMM index stored as a datetime; it is converted to
-    month-end dates. Values are returned as stored (Fama-French returns are in percent).
+    ``frenchdata`` is converted to month-end dates, whichever way ``arch`` stores its months (see
+    :func:`_french_month_ends`). Values are returned as stored (Fama-French returns are in percent).
     """
     if name not in _ARCH_SETS:
         raise ValueError(f"unknown arch dataset {name!r}; choose from {_ARCH_SETS}")
     df = _require(f"arch.data.{name}", "arch").load().copy()
     if name == "frenchdata":
-        yyyymm = df.index.asi8 if isinstance(df.index, pd.DatetimeIndex) else df.index
-        yyyymm = np.asarray(yyyymm, dtype=np.int64)
-        df.index = pd.PeriodIndex.from_fields(year=yyyymm // 100, month=yyyymm % 100,
-                                              freq="M").to_timestamp(how="end").normalize()
+        df.index = _french_month_ends(df.index)
     df.index.name = "date"
     return df
+
+
+def _french_month_ends(index: pd.Index) -> pd.DatetimeIndex:
+    """Month-end dates of the monthly Fama-French index, in either form that ``arch`` has had.
+
+    Before ``arch`` 9 the integer YYYYMM was stored as a count of nanoseconds since 1970 in a
+    datetime index (192607 became ``1970-01-01 00:00:00.000192607``, so every date lay within one
+    day of the epoch). From ``arch`` 9 on the index holds the first day of each month. The first
+    form is read back as the integer; the second is rounded to the month.
+    """
+    if isinstance(index, pd.DatetimeIndex) and index.max() - index.min() > pd.Timedelta(days=1):
+        months = index.to_period("M")
+    else:
+        yyyymm = np.asarray(index.asi8 if isinstance(index, pd.DatetimeIndex) else index,
+                            dtype=np.int64)
+        months = pd.PeriodIndex.from_fields(year=yyyymm // 100, month=yyyymm % 100, freq="M")
+    return months.to_timestamp(how="end").normalize()
 
 
 def load_csv(path: str | Path, date_column: str | int = 0) -> pd.DataFrame:
